@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: ERSync
+Bundle-SymbolicName: at.dhx.adempiere.ersync
+Bundle-Version: 1.0.0.qualifier
+Bundle-Vendor: dhx.at
+Bundle-RequiredExecutionEnvironment: JavaSE-1.7
