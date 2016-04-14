@@ -329,18 +329,37 @@ public class ImportWebOrder extends SvrProcess
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set Default BP=" + no);
 
-		//	Existing Location ? Exact Match
+		//	Existing Location ? Exact Match BillTo
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
-			  .append("SET (BillTo_ID,C_BPartner_Location_ID)=(SELECT C_BPartner_Location_ID,C_BPartner_Location_ID")
+			  .append("SET BillTo_ID=(SELECT C_BPartner_Location_ID")
+			  .append(" FROM C_BPartner_Location bpl INNER JOIN C_Location l ON (bpl.C_Location_ID=l.C_Location_ID)")
+			  .append(" WHERE o.C_BPartner_ID=bpl.C_BPartner_ID AND bpl.AD_Client_ID=o.AD_Client_ID")
+			  .append(" AND DUMP(o.Address1)=DUMP(l.Address1) AND DUMP(o.Address2)=DUMP(l.Address2)")
+			  .append(" AND DUMP(o.City)=DUMP(l.City) AND DUMP(o.Postal)=DUMP(l.Postal)")
+			  .append(" AND o.C_Region_ID=l.C_Region_ID AND o.C_Country_ID=l.C_Country_ID) ")
+			  .append("WHERE C_BPartner_ID IS NOT NULL AND BillTo_ID IS NULL")
+			  .append(" AND (IsBillTo='Y' OR IsBillTo IS NULL)")
+			  .append(" AND I_IsImported='N'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE)) log.fine("Found Location=" + no);
+		
+		//	Existing Location ? Exact Match Delivery
+		sql = new StringBuilder ("UPDATE I_Web_Order o ")
+			  .append("SET C_BPartner_Location_ID=(SELECT C_BPartner_Location_ID")
 			  .append(" FROM C_BPartner_Location bpl INNER JOIN C_Location l ON (bpl.C_Location_ID=l.C_Location_ID)")
 			  .append(" WHERE o.C_BPartner_ID=bpl.C_BPartner_ID AND bpl.AD_Client_ID=o.AD_Client_ID")
 			  .append(" AND DUMP(o.Address1)=DUMP(l.Address1) AND DUMP(o.Address2)=DUMP(l.Address2)")
 			  .append(" AND DUMP(o.City)=DUMP(l.City) AND DUMP(o.Postal)=DUMP(l.Postal)")
 			  .append(" AND o.C_Region_ID=l.C_Region_ID AND o.C_Country_ID=l.C_Country_ID) ")
 			  .append("WHERE C_BPartner_ID IS NOT NULL AND C_BPartner_Location_ID IS NULL")
+			  .append(" AND (IsBillTo='N' OR IsBillTo IS NULL)")
 			  .append(" AND I_IsImported='N'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Found Location=" + no);
+		
+		/*  DHX: We do not set the Bill and Delivery Location from the BPartner as the Locations will always be set from
+		 *  the Web Order
+		 *//**
 		//	Set Bill Location from BPartner
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET BillTo_ID=(SELECT MAX(C_BPartner_Location_ID) FROM C_BPartner_Location l")
@@ -351,6 +370,7 @@ public class ImportWebOrder extends SvrProcess
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set BP BillTo from BP=" + no);
+		
 		//	Set Location from BPartner
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET C_BPartner_Location_ID=(SELECT MAX(C_BPartner_Location_ID) FROM C_BPartner_Location l")
@@ -361,15 +381,8 @@ public class ImportWebOrder extends SvrProcess
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set BP Location from BP=" + no);
-		//
-		sql = new StringBuilder ("UPDATE I_Web_Order ")
-			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=No BP Location, ' ")
-			  .append("WHERE C_BPartner_ID IS NOT NULL AND (BillTo_ID IS NULL OR C_BPartner_Location_ID IS NULL)")
-			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
-		no = DB.executeUpdate(sql.toString(), get_TrxName());
-		if (no != 0)
-			log.warning ("No BP Location=" + no);
-
+		**/
+		
 		//	Set Country
 		/**
 		sql = new StringBuffer ("UPDATE I_Web_Order o "
@@ -499,9 +512,12 @@ public class ImportWebOrder extends SvrProcess
 		
 		//	-- New BPartner ---------------------------------------------------
 
-		//	Go through Order Records w/o C_BPartner_ID
+		//	Go through Order Records w/o C_BPartner_ID/C_BPartner_Location_ID/BillTo_ID
 		sql = new StringBuilder ("SELECT * FROM I_Web_Order ")
-			  .append("WHERE I_IsImported='N' AND C_BPartner_ID IS NULL").append (clientCheck);
+			  .append("WHERE I_IsImported='N'")
+			  .append(" AND (C_BPartner_ID IS NULL")
+			  .append(" OR C_BPartner_Location_ID IS NULL")
+			  .append(" OR BillTo_ID IS NULL)").append (clientCheck);
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try
@@ -528,7 +544,12 @@ public class ImportWebOrder extends SvrProcess
 						imp.setName (imp.getBPartnerValue ());
 				}
 				//	BPartner
-				MBPartner bp = MBPartner.get (getCtx(), imp.getBPartnerValue());
+				MBPartner bp;
+				if (imp.getC_BPartner_ID() > 0) {
+					bp = MBPartner.get (getCtx(), imp.getC_BPartner_ID());
+				} else {
+					bp = MBPartner.get (getCtx(), imp.getBPartnerValue());
+				}
 				if (bp == null)
 				{
 					bp = new MBPartner (getCtx (), -1, get_TrxName());
@@ -541,17 +562,15 @@ public class ImportWebOrder extends SvrProcess
 				imp.setC_BPartner_ID (bp.getC_BPartner_ID ());
 				
 				//	BP Location
+				int i_location_id = imp.isBillTo() ? imp.getBillTo_ID() : imp.getC_BPartner_Location_ID();
 				MBPartnerLocation bpl = null; 
 				MBPartnerLocation[] bpls = bp.getLocations(true);
 				for (int i = 0; bpl == null && i < bpls.length; i++)
 				{
-					if (imp.getC_BPartner_Location_ID() == bpls[i].getC_BPartner_Location_ID())
-						bpl = bpls[i];
-					//	Same Location ID
-					else if (imp.getC_Location_ID() == bpls[i].getC_Location_ID())
+					if (i_location_id == bpls[i].getC_BPartner_Location_ID())
 						bpl = bpls[i];
 					//	Same Location Info
-					else if (imp.getC_Location_ID() == 0)
+					else if (i_location_id == 0)
 					{
 						MLocation loc = bpls[i].getLocation(false);
 						if (loc.equals(imp.getC_Country_ID(), imp.getC_Region_ID(), 
@@ -579,10 +598,12 @@ public class ImportWebOrder extends SvrProcess
 					if (!bpl.save ())
 						continue;
 				}
-				imp.setC_Location_ID (bpl.getC_Location_ID ());
-				imp.setBillTo_ID (bpl.getC_BPartner_Location_ID ());
-				imp.setC_BPartner_Location_ID (bpl.getC_BPartner_Location_ID ());
-				
+				if (imp.isBillTo()) {
+					imp.setBillTo_ID (bpl.getC_BPartner_Location_ID ());					
+				} else {
+					imp.setC_BPartner_Location_ID (bpl.getC_BPartner_Location_ID ());
+				}
+					
 				//	User/Contact
 				if (imp.getContactName () != null 
 					|| imp.getEMail () != null 
@@ -597,7 +618,6 @@ public class ImportWebOrder extends SvrProcess
 							|| name.equals(imp.getName()))
 						{
 							user = users[i];
-							imp.setAD_User_ID (user.getAD_User_ID ());
 						}
 					}
 					if (user == null)
@@ -609,12 +629,20 @@ public class ImportWebOrder extends SvrProcess
 							user.setName (imp.getContactName ());
 						user.setEMail (imp.getEMail ());
 						user.setPhone (imp.getPhone ());
-						if (user.save ())
+						if (!user.save ()) {
+							user = null;
+						}
+					}
+					if (user != null) {
+						if (imp.isBillTo()) {
+							imp.setBill_User_ID(user.getAD_User_ID ());
+						} else {
 							imp.setAD_User_ID (user.getAD_User_ID ());
+						}
 					}
 				}
 				imp.save ();
-			}	//	for all new BPartners
+			}	//	for all Order Records w/o C_BPartner_ID/C_BPartner_Location_ID/BillTo_ID
 			//
 		}
 		catch (SQLException e)
@@ -627,6 +655,43 @@ public class ImportWebOrder extends SvrProcess
 			rs = null;
 			pstmt = null;
 		}
+
+		sql = new StringBuilder ("UPDATE I_Web_Order o ")
+		  .append("SET C_BPartner_Location_ID=(SELECT MAX(C_BPartner_Location_ID) FROM I_Web_Order wo")
+		  .append(" WHERE wo.DocumentNo = o.DocumentNo AND wo.C_BPartner_ID=o.C_BPartner_ID")
+		  .append(" AND wo.AD_Client_ID=o.AD_Client_ID AND wo.AD_Org_ID=o.AD_Org_ID")
+		  .append(") ")
+		  .append("WHERE C_BPartner_ID IS NOT NULL AND C_BPartner_Location_ID IS NULL")
+		  .append(" AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE)) log.fine("Set BP Location from other line=" + no);
+
+		sql = new StringBuilder ("UPDATE I_Web_Order o ")
+		  .append("SET BillTo_ID=(SELECT MAX(BillTo_ID) FROM I_Web_Order wo")
+		  .append(" WHERE wo.DocumentNo = o.DocumentNo AND wo.C_BPartner_ID=o.C_BPartner_ID")
+		  .append(" AND wo.AD_Client_ID=o.AD_Client_ID AND wo.AD_Org_ID=o.AD_Org_ID")
+		  .append(") ")
+		  .append("WHERE C_BPartner_ID IS NOT NULL AND BillTo_ID IS NULL")
+		  .append(" AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE)) log.fine("Set BillTo Location from other line=" + no);
+		
+		sql = new StringBuilder ("UPDATE I_Web_Order ")
+			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=No BP Location, ' ")
+			  .append("WHERE C_BPartner_ID IS NOT NULL AND C_BPartner_Location_ID IS NULL")
+			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (no != 0)
+			log.warning ("No BP Location=" + no);
+
+		sql = new StringBuilder ("UPDATE I_Web_Order ")
+		  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=No BillTo Location, ' ")
+		  .append("WHERE C_BPartner_ID IS NOT NULL AND BillTo_ID IS NULL")
+		  .append(" AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (no != 0)
+			log.warning ("No BillTo Location=" + no);
+		
 		sql = new StringBuilder ("UPDATE I_Web_Order ")
 			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=No BPartner, ' ")
 			  .append("WHERE C_BPartner_ID IS NULL")
@@ -634,7 +699,7 @@ public class ImportWebOrder extends SvrProcess
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (no != 0)
 			log.warning ("No BPartner=" + no);
-
+		
 		commitEx();
 		
 		//	-- New Orders -----------------------------------------------------

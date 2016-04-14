@@ -133,6 +133,21 @@ public interface I_I_Web_Order
 
 	public org.compiere.model.I_C_BPartner_Location getBillTo() throws RuntimeException;
 
+    /** Column name Bill_User_ID */
+    public static final String COLUMNNAME_Bill_User_ID = "Bill_User_ID";
+
+	/** Set Invoice Contact.
+	  * Business Partner Contact for invoicing
+	  */
+	public void setBill_User_ID (int Bill_User_ID);
+
+	/** Get Invoice Contact.
+	  * Business Partner Contact for invoicing
+	  */
+	public int getBill_User_ID();
+
+	public org.compiere.model.I_AD_User getBill_User() throws RuntimeException;
+
     /** Column name BPartnerValue */
     public static final String COLUMNNAME_BPartnerValue = "BPartnerValue";
 

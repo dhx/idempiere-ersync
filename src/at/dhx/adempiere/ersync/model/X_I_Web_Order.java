@@ -187,6 +187,34 @@ public class X_I_Web_Order extends PO implements I_I_Web_Order, I_Persistent
 		return ii.intValue();
 	}
 
+	public org.compiere.model.I_AD_User getBill_User() throws RuntimeException
+    {
+		return (org.compiere.model.I_AD_User)MTable.get(getCtx(), org.compiere.model.I_AD_User.Table_Name)
+			.getPO(getBill_User_ID(), get_TrxName());	}
+
+	/** Set Invoice Contact.
+		@param Bill_User_ID 
+		Business Partner Contact for invoicing
+	  */
+	public void setBill_User_ID (int Bill_User_ID)
+	{
+		if (Bill_User_ID < 1) 
+			set_ValueNoCheck (COLUMNNAME_Bill_User_ID, null);
+		else 
+			set_ValueNoCheck (COLUMNNAME_Bill_User_ID, Integer.valueOf(Bill_User_ID));
+	}
+
+	/** Get Invoice Contact.
+		@return Business Partner Contact for invoicing
+	  */
+	public int getBill_User_ID () 
+	{
+		Integer ii = (Integer)get_Value(COLUMNNAME_Bill_User_ID);
+		if (ii == null)
+			 return 0;
+		return ii.intValue();
+	}
+
 	/** Set Business Partner Key.
 		@param BPartnerValue 
 		Key of the Business Partner
