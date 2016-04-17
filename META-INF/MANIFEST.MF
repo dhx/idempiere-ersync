@@ -8,3 +8,4 @@ Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Require-Bundle: org.adempiere.base;bundle-version="3.1.0",
  org.adempiere.plugin.utils;bundle-version="3.1.0"
 Bundle-Activator: org.adempiere.plugin.utils.AdempiereActivator
+Service-Component: ersync.modelfactory.xml
