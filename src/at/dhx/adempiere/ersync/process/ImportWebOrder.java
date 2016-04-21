@@ -295,19 +295,19 @@ public class ImportWebOrder extends SvrProcess
 		if (no != 0)
 			log.warning ("No Warehouse=" + no);
 
-		//	BP from EMail
+		//	BP from EMail when no BPartnerValue is set
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET (C_BPartner_ID,AD_User_ID)=(SELECT C_BPartner_ID,AD_User_ID FROM AD_User u")
 			  .append(" WHERE o.EMail=u.EMail AND o.AD_Client_ID=u.AD_Client_ID AND u.C_BPartner_ID IS NOT NULL) ")
-			  .append("WHERE C_BPartner_ID IS NULL AND EMail IS NOT NULL")
+			  .append("WHERE C_BPartner_ID IS NULL AND BPartnerValue IS NULL AND EMail IS NOT NULL")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set BP from EMail=" + no);
-		//	BP from ContactName
+		//	BP from ContactName when no BPartnerValue is set
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET (C_BPartner_ID,AD_User_ID)=(SELECT C_BPartner_ID,AD_User_ID FROM AD_User u")
 			  .append(" WHERE o.ContactName=u.Name AND o.AD_Client_ID=u.AD_Client_ID AND u.C_BPartner_ID IS NOT NULL) ")
-			  .append("WHERE C_BPartner_ID IS NULL AND ContactName IS NOT NULL")
+			  .append("WHERE C_BPartner_ID IS NULL AND BPartnerValue IS NULL AND ContactName IS NOT NULL")
 			  .append(" AND EXISTS (SELECT Name FROM AD_User u WHERE o.ContactName=u.Name AND o.AD_Client_ID=u.AD_Client_ID AND u.C_BPartner_ID IS NOT NULL GROUP BY Name HAVING COUNT(*)=1)")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
@@ -449,21 +449,24 @@ public class ImportWebOrder extends SvrProcess
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET M_Product_ID=(SELECT MAX(M_Product_ID) FROM M_Product p")
 			  .append(" WHERE o.UPC=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
-			  .append("WHERE M_Product_ID IS NULL AND UPC IS NOT NULL")
+			  .append("WHERE M_Product_ID IS NULL AND UPC IS NOT NULL AND UPC <> ''")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set Product from UPC=" + no);
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET M_Product_ID=(SELECT MAX(M_Product_ID) FROM M_Product p")
 			  .append(" WHERE o.SKU=p.SKU AND o.AD_Client_ID=p.AD_Client_ID) ")
-			  .append("WHERE M_Product_ID IS NULL AND SKU IS NOT NULL")
+			  .append("WHERE M_Product_ID IS NULL AND SKU IS NOT NULL AND SKU <> ''")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set Product fom SKU=" + no);
 		sql = new StringBuilder ("UPDATE I_Web_Order ")
 			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Product, ' ")
-			  .append("WHERE M_Product_ID IS NULL AND (ProductValue IS NOT NULL OR UPC IS NOT NULL OR SKU IS NOT NULL)")
-			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
+			  .append("WHERE M_Product_ID IS NULL AND (")
+			  .append(" ProductValue IS NOT NULL")
+			  .append(" OR (UPC IS NOT NULL AND UPC <> '') ")
+			  .append(" OR (SKU IS NOT NULL AND SKU <> '') ")
+			  .append(") AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (no != 0)
 			log.warning ("Invalid Product=" + no);
@@ -502,8 +505,12 @@ public class ImportWebOrder extends SvrProcess
 		if (log.isLoggable(Level.FINE)) log.fine("Set Tax=" + no);
 		sql = new StringBuilder ("UPDATE I_Web_Order ")
 			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Tax, ' ")
-			  .append("WHERE C_Tax_ID IS NULL AND TaxIndicator IS NOT NULL")
-			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
+			  .append("WHERE C_Tax_ID IS NULL AND TaxIndicator IS NOT NULL AND (")
+  			  .append(" ProductValue IS NOT NULL")
+  			  .append(" OR M_Product_ID IS NOT NULL")
+			  .append(" OR (UPC IS NOT NULL AND UPC <> '') ")
+			  .append(" OR (SKU IS NOT NULL AND SKU <> '') ")
+			  .append(") AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (no != 0)
 			log.warning ("Invalid Tax=" + no);
@@ -530,13 +537,13 @@ public class ImportWebOrder extends SvrProcess
 				if (imp.getBPartnerValue () == null)
 				{
 					if (imp.getEMail () != null)
-						imp.setBPartnerValue (imp.getEMail ());
-					else if (imp.getName () != null)
-						imp.setBPartnerValue (imp.getName ());
+						imp.setBPartnerValue (imp.getEMail().toLowerCase());
+					//else if (imp.getName () != null)
+					//	imp.setBPartnerValue (imp.getName ());
 					else
 						continue;
 				}
-				if (imp.getName () == null)
+				if (imp.getName () == null || imp.getName().equals(""))
 				{
 					if (imp.getContactName () != null)
 						imp.setName (imp.getContactName ());
@@ -553,7 +560,7 @@ public class ImportWebOrder extends SvrProcess
 				if (bp == null)
 				{
 					bp = new MBPartner (getCtx (), -1, get_TrxName());
-					bp.setClientOrg (imp.getAD_Client_ID (), imp.getAD_Org_ID ());
+					bp.setClientOrg (imp.getAD_Client_ID (), 0);
 					bp.setValue (imp.getBPartnerValue ());
 					bp.setName (imp.getName ());
 					if (!bp.save ())
@@ -605,9 +612,9 @@ public class ImportWebOrder extends SvrProcess
 				}
 					
 				//	User/Contact
-				if (imp.getContactName () != null 
-					|| imp.getEMail () != null 
-					|| imp.getPhone () != null)
+				if ((imp.getContactName() != null && imp.getContactName() != "") 
+					|| (imp.getEMail() != null && imp.getEMail() != "") 
+					|| (imp.getPhone() != null && imp.getPhone() != ""))
 				{
 					MUser[] users = bp.getContacts(true);
 					MUser user = null;
@@ -809,31 +816,39 @@ public class ImportWebOrder extends SvrProcess
 					lineNo = 10;
 				}
 				imp.setC_Order_ID(order.getC_Order_ID());
-				//	New OrderLine
-				MOrderLine line = new MOrderLine (order);
-				line.setLine(lineNo);
-				lineNo += 10;
-				if (imp.getM_Product_ID() != 0)
-					line.setM_Product_ID(imp.getM_Product_ID(), true);
-				if (imp.getC_Charge_ID() != 0)
-					line.setC_Charge_ID(imp.getC_Charge_ID());
-				line.setQty(imp.getQtyOrdered());
-				line.setPrice();
-				if (imp.getPriceActual().compareTo(Env.ZERO) != 0)
-					line.setPrice(imp.getPriceActual());
-				if (imp.getC_Tax_ID() != 0)
-					line.setC_Tax_ID(imp.getC_Tax_ID());
-				else
-				{
-					line.setTax();
-					imp.setC_Tax_ID(line.getC_Tax_ID());
+				
+				if (imp.getPriceActual().signum() != 0 || (
+						imp.getDescription() != null &&
+						imp.getDescription().length() > 0) || (
+						imp.getC_Charge_ID() != 0 &&
+						imp.getM_Product_ID() != 0
+						)) {
+					//	New OrderLine
+					MOrderLine line = new MOrderLine (order);
+					line.setLine(lineNo);
+					lineNo += 10;
+					if (imp.getM_Product_ID() != 0)
+						line.setM_Product_ID(imp.getM_Product_ID(), true);
+					if (imp.getC_Charge_ID() != 0)
+						line.setC_Charge_ID(imp.getC_Charge_ID());
+					line.setQty(imp.getQtyOrdered());
+					line.setPrice();
+					if (imp.getPriceActual().compareTo(Env.ZERO) != 0)
+						line.setPrice(imp.getPriceActual());
+					if (imp.getC_Tax_ID() != 0)
+						line.setC_Tax_ID(imp.getC_Tax_ID());
+					else
+					{
+						line.setTax();
+						imp.setC_Tax_ID(line.getC_Tax_ID());
+					}
+					if (imp.getFreightAmt() != null)
+						line.setFreightAmt(imp.getFreightAmt());
+					if (imp.getLineDescription() != null)
+						line.setDescription(imp.getLineDescription());
+					line.saveEx();
+					imp.setC_OrderLine_ID(line.getC_OrderLine_ID());
 				}
-				if (imp.getFreightAmt() != null)
-					line.setFreightAmt(imp.getFreightAmt());
-				if (imp.getLineDescription() != null)
-					line.setDescription(imp.getLineDescription());
-				line.saveEx();
-				imp.setC_OrderLine_ID(line.getC_OrderLine_ID());
 				imp.setI_IsImported(true);
 				imp.setProcessed(true);
 				//
