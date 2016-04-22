@@ -553,9 +553,9 @@ public class ImportWebOrder extends SvrProcess
 				//	BPartner
 				MBPartner bp;
 				if (imp.getC_BPartner_ID() > 0) {
-					bp = MBPartner.get (getCtx(), imp.getC_BPartner_ID());
+					bp = MBPartner.get (getCtx(), imp.getC_BPartner_ID(), get_TrxName());
 				} else {
-					bp = MBPartner.get (getCtx(), imp.getBPartnerValue());
+					bp = MBPartner.get (getCtx(), imp.getBPartnerValue(), get_TrxName());
 				}
 				if (bp == null)
 				{
