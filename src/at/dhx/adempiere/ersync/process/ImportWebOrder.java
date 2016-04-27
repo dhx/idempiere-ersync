@@ -396,7 +396,8 @@ public class ImportWebOrder extends SvrProcess
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET C_Country_ID=(SELECT C_Country_ID FROM C_Country c")
 			  .append(" WHERE o.CountryCode=c.CountryCode AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
-			  .append("WHERE C_BPartner_ID IS NULL AND C_Country_ID IS NULL AND CountryCode IS NOT NULL")
+			  .append("WHERE C_BPartner_ID IS NULL AND C_Country_ID IS NULL")
+			  .append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set Country=" + no);
@@ -404,10 +405,12 @@ public class ImportWebOrder extends SvrProcess
 		sql = new StringBuilder ("UPDATE I_Web_Order ")
 			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Country, ' ")
 			  .append("WHERE C_BPartner_ID IS NULL AND C_Country_ID IS NULL")
+			  .append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (no != 0)
 			log.warning ("Invalid Country=" + no);
+		
 
 		//	Set Region
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
@@ -428,6 +431,7 @@ public class ImportWebOrder extends SvrProcess
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set Region=" + no);
 		//
+		/**
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Region, ' ")
 			  .append("WHERE C_BPartner_ID IS NULL AND C_Region_ID IS NULL ")
@@ -437,6 +441,7 @@ public class ImportWebOrder extends SvrProcess
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (no != 0)
 			log.warning ("Invalid Region=" + no);
+		**/
 
 		//	Product
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
@@ -448,7 +453,7 @@ public class ImportWebOrder extends SvrProcess
 		if (log.isLoggable(Level.FINE)) log.fine("Set Product from Value=" + no);
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 			  .append("SET M_Product_ID=(SELECT MAX(M_Product_ID) FROM M_Product p")
-			  .append(" WHERE o.UPC=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
+			  .append(" WHERE trim(leading '0' from o.UPC)=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
 			  .append("WHERE M_Product_ID IS NULL AND UPC IS NOT NULL AND UPC <> ''")
 			  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
@@ -467,6 +472,19 @@ public class ImportWebOrder extends SvrProcess
 			  .append(" OR (UPC IS NOT NULL AND UPC <> '') ")
 			  .append(" OR (SKU IS NOT NULL AND SKU <> '') ")
 			  .append(") AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (no != 0)
+			log.warning ("Invalid Product=" + no);
+		
+		//  See if product is in pricelist
+		sql = new StringBuilder ("UPDATE I_Web_Order o ")
+		  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Product not in valid price list, ' ")
+		  .append("WHERE o.M_Product_ID IS NOT NULL AND o.M_PriceList_ID IS NOT NULL")
+		  .append(" AND o.M_PriceList_ID NOT IN")
+		  .append(" (SELECT v.M_PriceList_ID FROM M_PriceList_Version v, M_ProductPrice p")
+		  .append(" WHERE v.m_pricelist_version_id = p.m_pricelist_version_id ")
+		  .append(" AND p.m_product_id = o.M_Product_ID AND v.validfrom <= o.dateordered)")
+		  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (no != 0)
 			log.warning ("Invalid Product=" + no);
@@ -524,7 +542,8 @@ public class ImportWebOrder extends SvrProcess
 			  .append("WHERE I_IsImported='N'")
 			  .append(" AND (C_BPartner_ID IS NULL")
 			  .append(" OR C_BPartner_Location_ID IS NULL")
-			  .append(" OR BillTo_ID IS NULL)").append (clientCheck);
+			  .append(" OR BillTo_ID IS NULL)").append (clientCheck)
+			  .append(" ORDER BY I_Web_Order_ID ASC");
 		PreparedStatement pstmt = null;
 		ResultSet rs = null;
 		try
@@ -559,6 +578,9 @@ public class ImportWebOrder extends SvrProcess
 				}
 				if (bp == null)
 				{
+					if (imp.getName() == null)
+						continue;
+					
 					bp = new MBPartner (getCtx (), -1, get_TrxName());
 					bp.setClientOrg (imp.getAD_Client_ID (), 0);
 					bp.setValue (imp.getBPartnerValue ());
@@ -586,7 +608,7 @@ public class ImportWebOrder extends SvrProcess
 							bpl = bpls[i];
 					}
 				}
-				if (bpl == null)
+				if (bpl == null && imp.getC_Country_ID() > 0)
 				{
 					//	New Location
 					MLocation loc = new MLocation (getCtx (), 0, get_TrxName());
@@ -605,16 +627,18 @@ public class ImportWebOrder extends SvrProcess
 					if (!bpl.save ())
 						continue;
 				}
-				if (imp.isBillTo()) {
-					imp.setBillTo_ID (bpl.getC_BPartner_Location_ID ());					
-				} else {
-					imp.setC_BPartner_Location_ID (bpl.getC_BPartner_Location_ID ());
+				if (bpl != null) {
+					if (imp.isBillTo()) {
+						imp.setBillTo_ID (bpl.getC_BPartner_Location_ID ());					
+					} else {
+						imp.setC_BPartner_Location_ID (bpl.getC_BPartner_Location_ID ());
+					}
 				}
 					
 				//	User/Contact
-				if ((imp.getContactName() != null && imp.getContactName() != "") 
-					|| (imp.getEMail() != null && imp.getEMail() != "") 
-					|| (imp.getPhone() != null && imp.getPhone() != ""))
+				if ((imp.getContactName() != null && imp.getContactName().length() > 0) 
+					|| (imp.getEMail() != null && imp.getEMail().length() > 0) 
+					|| (imp.getPhone() != null && imp.getPhone().length() > 0))
 				{
 					MUser[] users = bp.getContacts(true);
 					MUser user = null;
@@ -682,6 +706,15 @@ public class ImportWebOrder extends SvrProcess
 		  .append(" AND I_IsImported<>'Y'").append (clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE)) log.fine("Set BillTo Location from other line=" + no);
+
+		sql = new StringBuilder ("UPDATE I_Web_Order o ")
+		  .append("SET FreightAmt=(SELECT MAX(FreightAmt) FROM I_Web_Order wo")
+		  .append(" WHERE wo.DocumentNo = o.DocumentNo AND wo.C_BPartner_ID=o.C_BPartner_ID")
+		  .append(" AND wo.AD_Client_ID=o.AD_Client_ID AND wo.AD_Org_ID=o.AD_Org_ID")
+		  .append(") ")
+		  .append("WHERE I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE)) log.fine("Set FreightAmt from other line=" + no);
 		
 		sql = new StringBuilder ("UPDATE I_Web_Order ")
 			  .append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=No BP Location, ' ")
@@ -749,7 +782,7 @@ public class ImportWebOrder extends SvrProcess
 							order.setDocAction(m_docAction);
 							if(!order.processIt (m_docAction)) {
 								log.warning("Order Process Failed: " + order + " - " + order.getProcessMsg());
-								throw new IllegalStateException("Order Process Failed: " + order + " - " + order.getProcessMsg());
+								//throw new IllegalStateException("Order Process Failed: " + order + " - " + order.getProcessMsg());
 								
 							}
 						}
@@ -811,6 +844,12 @@ public class ImportWebOrder extends SvrProcess
 					if (imp.getC_OrderSource() != null)
 						order.setC_OrderSource_ID(imp.getC_OrderSource_ID());
 					//
+					
+					if (imp.getFreightAmt() != null && imp.getFreightAmt().signum() != 0) {
+						order.setFreightAmt(imp.getFreightAmt());
+						order.setFreightCostRule("F"); // Set the freight cost rule to fixed
+					}
+					
 					order.saveEx();
 					noInsert++;
 					lineNo = 10;
@@ -842,8 +881,6 @@ public class ImportWebOrder extends SvrProcess
 						line.setTax();
 						imp.setC_Tax_ID(line.getC_Tax_ID());
 					}
-					if (imp.getFreightAmt() != null)
-						line.setFreightAmt(imp.getFreightAmt());
 					if (imp.getLineDescription() != null)
 						line.setDescription(imp.getLineDescription());
 					line.saveEx();
