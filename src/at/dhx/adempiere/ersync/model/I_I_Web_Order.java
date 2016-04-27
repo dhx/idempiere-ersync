@@ -775,6 +775,15 @@ public interface I_I_Web_Order
 	  */
 	public String getName();
 
+    /** Column name PaidAmt */
+    public static final String COLUMNNAME_PaidAmt = "PaidAmt";
+
+	/** Set Paid Amount	  */
+	public void setPaidAmt (BigDecimal PaidAmt);
+
+	/** Get Paid Amount	  */
+	public BigDecimal getPaidAmt();
+
     /** Column name PaymentTermValue */
     public static final String COLUMNNAME_PaymentTermValue = "PaymentTermValue";
 

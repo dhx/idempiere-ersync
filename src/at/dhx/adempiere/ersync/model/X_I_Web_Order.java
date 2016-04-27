@@ -33,7 +33,7 @@ public class X_I_Web_Order extends PO implements I_I_Web_Order, I_Persistent
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20160414L;
+	private static final long serialVersionUID = 20160427L;
 
     /** Standard Constructor */
     public X_I_Web_Order (Properties ctx, int I_Web_Order_ID, String trxName)
@@ -42,6 +42,7 @@ public class X_I_Web_Order extends PO implements I_I_Web_Order, I_Persistent
       /** if (I_Web_Order_ID == 0)
         {
 			setI_IsImported (false);
+// N
 			setI_Web_Order_ID (0);
         } */
     }
@@ -1232,6 +1233,23 @@ public class X_I_Web_Order extends PO implements I_I_Web_Order, I_Persistent
 	public String getName () 
 	{
 		return (String)get_Value(COLUMNNAME_Name);
+	}
+
+	/** Set Paid Amount.
+		@param PaidAmt Paid Amount	  */
+	public void setPaidAmt (BigDecimal PaidAmt)
+	{
+		set_Value (COLUMNNAME_PaidAmt, PaidAmt);
+	}
+
+	/** Get Paid Amount.
+		@return Paid Amount	  */
+	public BigDecimal getPaidAmt () 
+	{
+		BigDecimal bd = (BigDecimal)get_Value(COLUMNNAME_PaidAmt);
+		if (bd == null)
+			 return Env.ZERO;
+		return bd;
 	}
 
 	/** Set Payment Term Key.
