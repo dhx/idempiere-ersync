@@ -708,6 +708,15 @@ public class ImportWebOrder extends SvrProcess
 		if (log.isLoggable(Level.FINE)) log.fine("Set BillTo Location from other line=" + no);
 
 		sql = new StringBuilder ("UPDATE I_Web_Order o ")
+		  .append("SET PaidAmt=(SELECT MAX(PaidAmt) FROM I_Web_Order wo")
+		  .append(" WHERE wo.DocumentNo = o.DocumentNo AND wo.C_BPartner_ID=o.C_BPartner_ID")
+		  .append(" AND wo.AD_Client_ID=o.AD_Client_ID AND wo.AD_Org_ID=o.AD_Org_ID")
+		  .append(") ")
+		  .append("WHERE I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE)) log.fine("Set PaidAmt from other line=" + no);
+
+		sql = new StringBuilder ("UPDATE I_Web_Order o ")
 		  .append("SET FreightAmt=(SELECT MAX(FreightAmt) FROM I_Web_Order wo")
 		  .append(" WHERE wo.DocumentNo = o.DocumentNo AND wo.C_BPartner_ID=o.C_BPartner_ID")
 		  .append(" AND wo.AD_Client_ID=o.AD_Client_ID AND wo.AD_Org_ID=o.AD_Org_ID")
