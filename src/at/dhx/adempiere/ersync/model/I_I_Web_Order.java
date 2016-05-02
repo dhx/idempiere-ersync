@@ -645,6 +645,19 @@ public interface I_I_Web_Order
 	  */
 	public boolean isBillTo();
 
+    /** Column name ISO_Code */
+    public static final String COLUMNNAME_ISO_Code = "ISO_Code";
+
+	/** Set ISO Currency Code.
+	  * Three letter ISO 4217 Code of the Currency
+	  */
+	public void setISO_Code (String ISO_Code);
+
+	/** Get ISO Currency Code.
+	  * Three letter ISO 4217 Code of the Currency
+	  */
+	public String getISO_Code();
+
     /** Column name IsPaid */
     public static final String COLUMNNAME_IsPaid = "IsPaid";
 

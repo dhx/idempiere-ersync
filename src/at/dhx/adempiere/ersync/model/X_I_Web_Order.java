@@ -33,7 +33,7 @@ public class X_I_Web_Order extends PO implements I_I_Web_Order, I_Persistent
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20160427L;
+	private static final long serialVersionUID = 20160502L;
 
     /** Standard Constructor */
     public X_I_Web_Order (Properties ctx, int I_Web_Order_ID, String trxName)
@@ -1005,6 +1005,23 @@ public class X_I_Web_Order extends PO implements I_I_Web_Order, I_Persistent
 			return "Y".equals(oo);
 		}
 		return false;
+	}
+
+	/** Set ISO Currency Code.
+		@param ISO_Code 
+		Three letter ISO 4217 Code of the Currency
+	  */
+	public void setISO_Code (String ISO_Code)
+	{
+		set_Value (COLUMNNAME_ISO_Code, ISO_Code);
+	}
+
+	/** Get ISO Currency Code.
+		@return Three letter ISO 4217 Code of the Currency
+	  */
+	public String getISO_Code () 
+	{
+		return (String)get_Value(COLUMNNAME_ISO_Code);
 	}
 
 	/** Set Paid.
