@@ -1,1 +1,0 @@
-ALTER TABLE i_web_order DROP CONSTRAINT i_web_order_i_isimported_check;
