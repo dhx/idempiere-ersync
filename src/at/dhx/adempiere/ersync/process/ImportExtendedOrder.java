@@ -648,7 +648,7 @@ public class ImportExtendedOrder extends SvrProcess {
 				.append(getM_TableName())
 				.append(" o ")
 				.append("SET M_Product_ID=(SELECT MAX(M_Product_ID) FROM M_Product p")
-				.append(" WHERE trim(leading '0' from o.UPC)=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
+				.append(" WHERE trim(leading ' 0' from o.UPC)=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
 				.append("WHERE M_Product_ID IS NULL AND UPC IS NOT NULL AND UPC <> ''")
 				.append(" AND I_IsImported<>'Y'").append(clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
