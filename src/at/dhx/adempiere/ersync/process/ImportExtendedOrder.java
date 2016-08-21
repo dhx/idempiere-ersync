@@ -664,6 +664,16 @@ public class ImportExtendedOrder extends SvrProcess {
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE))
 			log.fine("Set Product fom SKU=" + no);
+		// As a last resort try to associate the UPC by the M_Product_PO UPC if one is available
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName())
+				.append(" ")
+				.append("SET M_Product_ID=(SELECT MAX(M_Product_ID) FROM M_Product_PO p")
+				.append(" WHERE trim(leading ' 0' from o.UPC)=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
+				.append("WHERE M_Product_ID IS NULL AND UPC IS NOT NULL")
+				.append(" AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE)) log.fine("Set Product from PO UPC=" + no);
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
 				.append(" ")
