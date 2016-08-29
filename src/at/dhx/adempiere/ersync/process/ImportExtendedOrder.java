@@ -1018,6 +1018,9 @@ public class ImportExtendedOrder extends SvrProcess {
 			sql = new StringBuilder("SELECT * FROM ")
 					.append(getM_TableName())
 					.append(" WHERE I_IsImported='N'")
+					.append(" AND documentno NOT IN (SELECT DISTINCT documentno FROM ")
+					.append(getM_TableName())
+					.append(" WHERE I_IsImported='E')")
 					.append(clientCheck)
 					.append(" ORDER BY C_BPartner_ID, BillTo_ID, C_BPartner_Location_ID, ")
 					.append(getM_TableName()).append("_ID");
