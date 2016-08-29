@@ -667,7 +667,7 @@ public class ImportExtendedOrder extends SvrProcess {
 		// As a last resort try to associate the UPC by the M_Product_PO UPC if one is available
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
-				.append(" ")
+				.append(" o ")
 				.append("SET M_Product_ID=(SELECT MAX(M_Product_ID) FROM M_Product_PO p")
 				.append(" WHERE trim(leading ' 0' from o.UPC)=p.UPC AND o.AD_Client_ID=p.AD_Client_ID) ")
 				.append("WHERE M_Product_ID IS NULL AND UPC IS NOT NULL")
