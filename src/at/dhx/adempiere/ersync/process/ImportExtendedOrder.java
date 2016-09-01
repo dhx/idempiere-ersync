@@ -496,6 +496,41 @@ public class ImportExtendedOrder extends SvrProcess {
 		if (log.isLoggable(Level.FINE))
 			log.fine("Set Default BP=" + no);
 
+		// Set Country
+		/**
+		 * sql = new StringBuffer
+		 * ("UPDATE ").append(getM_TableName()).append(" o " +
+		 * "SET CountryCode=(SELECT MAX(CountryCode) FROM C_Country c WHERE c.IsDefault='Y'"
+		 * + " AND c.AD_Client_ID IN (0, o.AD_Client_ID)) " +
+		 * "WHERE C_BPartner_ID IS NULL AND CountryCode IS NULL AND C_Country_ID IS NULL"
+		 * + " AND I_IsImported<>'Y'").append (clientCheck); no =
+		 * DB.executeUpdate(sql.toString(), get_TrxName());
+		 * log.fine("Set Country Default=" + no);
+		 **/
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName())
+				.append(" o ")
+				.append("SET C_Country_ID=(SELECT C_Country_ID FROM C_Country c")
+				.append(" WHERE o.CountryCode=c.CountryCode AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
+				.append("WHERE C_Country_ID IS NULL")
+				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
+				.append(" AND I_IsImported<>'Y'").append(clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set Country=" + no);
+		//
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName())
+				.append(" ")
+				.append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Country, ' ")
+				.append("WHERE C_BPartner_ID IS NULL AND C_Country_ID IS NULL")
+				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
+				.append(" AND I_IsImported<>'Y'").append(clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (no != 0)
+			log.warning("Invalid Country=" + no);
+
+
 		// Existing Location ? Exact Match BillTo
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
@@ -562,40 +597,8 @@ public class ImportExtendedOrder extends SvrProcess {
 		 * no);
 		 **/
 
-		// Set Country
-		/**
-		 * sql = new StringBuffer
-		 * ("UPDATE ").append(getM_TableName()).append(" o " +
-		 * "SET CountryCode=(SELECT MAX(CountryCode) FROM C_Country c WHERE c.IsDefault='Y'"
-		 * + " AND c.AD_Client_ID IN (0, o.AD_Client_ID)) " +
-		 * "WHERE C_BPartner_ID IS NULL AND CountryCode IS NULL AND C_Country_ID IS NULL"
-		 * + " AND I_IsImported<>'Y'").append (clientCheck); no =
-		 * DB.executeUpdate(sql.toString(), get_TrxName());
-		 * log.fine("Set Country Default=" + no);
-		 **/
-		sql = new StringBuilder("UPDATE ")
-				.append(getM_TableName())
-				.append(" o ")
-				.append("SET C_Country_ID=(SELECT C_Country_ID FROM C_Country c")
-				.append(" WHERE o.CountryCode=c.CountryCode AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
-				.append("WHERE C_BPartner_ID IS NULL AND C_Country_ID IS NULL")
-				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
-				.append(" AND I_IsImported<>'Y'").append(clientCheck);
-		no = DB.executeUpdate(sql.toString(), get_TrxName());
-		if (log.isLoggable(Level.FINE))
-			log.fine("Set Country=" + no);
-		//
-		sql = new StringBuilder("UPDATE ")
-				.append(getM_TableName())
-				.append(" ")
-				.append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Country, ' ")
-				.append("WHERE C_BPartner_ID IS NULL AND C_Country_ID IS NULL")
-				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
-				.append(" AND I_IsImported<>'Y'").append(clientCheck);
-		no = DB.executeUpdate(sql.toString(), get_TrxName());
-		if (no != 0)
-			log.warning("Invalid Country=" + no);
-
+		
+		
 		// Set Region
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
