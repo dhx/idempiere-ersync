@@ -14,6 +14,8 @@ public class ERSyncModelFactory implements IModelFactory {
 			return X_I_Web_Order.class;
 		} else if (tableName.equals(X_I_POS_Order.Table_Name)) {
 			return X_I_POS_Order.class;
+		} else if (tableName.equals(X_I_Auto_Movement.Table_Name)) {
+			return X_I_Auto_Movement.class;
 		}
 		return null;
 	}
@@ -24,6 +26,8 @@ public class ERSyncModelFactory implements IModelFactory {
 			return new X_I_Web_Order(Env.getCtx(), Record_ID, trxName);
 		} else if (tableName.equals(X_I_POS_Order.Table_Name)) {
 			return new X_I_POS_Order(Env.getCtx(), Record_ID, trxName);
+		} else if (tableName.equals(X_I_Auto_Movement.Table_Name)) {
+			return new X_I_Auto_Movement(Env.getCtx(), Record_ID, trxName);
 		}
 		return null;
 	}
@@ -34,6 +38,8 @@ public class ERSyncModelFactory implements IModelFactory {
 			return new X_I_Web_Order(Env.getCtx(), rs, trxName);
 		} else if (tableName.equals(X_I_POS_Order.Table_Name)) {
 			return new X_I_POS_Order(Env.getCtx(), rs, trxName);
+		} else if (tableName.equals(X_I_Auto_Movement.Table_Name)) {
+			return new X_I_Auto_Movement(Env.getCtx(), rs, trxName);
 		}
 		return null;
 	}

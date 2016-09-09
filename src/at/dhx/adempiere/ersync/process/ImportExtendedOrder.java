@@ -1127,11 +1127,12 @@ public class ImportExtendedOrder extends SvrProcess {
 
 						if (imp.getFreightAmt() != null
 								&& imp.getFreightAmt().signum() != 0) {
-							order.setFreightAmt(imp.getFreightAmt());
-							order.setFreightCostRule("F"); // Set the freight
-															// cost rule to
-															// fixed
-						}
+							order.setFreightAmt(imp.getFreightAmt());							
+							// Set the freight cost rule to fixed
+							order.setFreightCostRule("F");
+							order.setDeliveryViaRule(MOrder.DELIVERYVIARULE_Shipper);
+							order.setM_Shipper_ID(1000002);
+						}			
 
 						order.saveEx();
 

@@ -9,5 +9,21 @@
             class="at.dhx.adempiere.ersync.process.ImportWebOrder">
       </process>
    </extension>
+   <extension
+         id="at.dhx.adempiere.ersync.process.ImportPOSOrder"
+         name="at.dhx.adempiere.ersync.process.ImportPOSOrder"
+         point="org.adempiere.base.Process">
+      <process
+            class="at.dhx.adempiere.ersync.process.ImportPOSOrder">
+      </process>
+   </extension>
+   <extension
+         id="at.dhx.adempiere.ersync.process.ImportAutoInventoryMove"
+         name="at.dhx.adempiere.ersync.process.ImportAutoInventoryMove"
+         point="org.adempiere.base.Process">
+      <process
+            class="at.dhx.adempiere.ersync.process.ImportAutoInventoryMove">
+      </process>
+   </extension>
 
 </plugin>
