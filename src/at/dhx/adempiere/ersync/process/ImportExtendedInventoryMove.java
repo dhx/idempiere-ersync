@@ -18,16 +18,19 @@
 package at.dhx.adempiere.ersync.process;
 
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 
 import org.compiere.model.I_M_Movement;
-import org.compiere.model.I_M_MovementLine;
 import org.compiere.model.MBPartner;
 import org.compiere.model.MCampaign;
-import org.compiere.model.MColumn;
 import org.compiere.model.MDocType;
 import org.compiere.model.MLocator;
 import org.compiere.model.MMovement;
@@ -37,9 +40,9 @@ import org.compiere.model.MProduct;
 import org.compiere.model.MProject;
 import org.compiere.model.MShipper;
 import org.compiere.model.MStorageOnHand;
-import org.compiere.model.MTable;
 import org.compiere.model.MWarehouse;
 import org.compiere.model.Query;
+import org.compiere.model.X_M_Warehouse;
 import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
 import org.compiere.util.Env;
@@ -50,7 +53,8 @@ import at.dhx.adempiere.ersync.model.X_I_Auto_Movement;
 
 
 /**
- *	Import Inventory Movement from I_M_Movemen
+ *	ImportExtendedInventoryMove is based on:
+ *  Import Inventory Movement from I_M_Movement
  *
  * 	@author 	Alberto Juarez Caballero, alberto.juarez@e-evolution.com, www.e-evolution.com
  * 	@author 	victor.perez@e-evolution.com, www.e-evolution.com
@@ -118,7 +122,10 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			if (log.isLoggable(Level.FINE)) log.fine("Delete Old Impored =" + no);
 		}
 		
-		fillIDValues();		
+		fillIDValues();
+		// all movement lines having insufficient quantity on hand in the source locator
+		// we try to split up when there is another locator having qty on hand for the desired product
+		splitInsufficientQOHMovements();
 		importRecords();	
 		return "Imported: " + imported + ", Not imported: " + notimported;
 	}	//	doIt
@@ -200,16 +207,8 @@ public class ImportExtendedInventoryMove extends SvrProcess
 	private boolean importMInventoryMoveLine(MMovement move, X_I_Auto_Movement imove)
 	{
 		isImported = false;
-		
-		//DHX: do not lookup existing movement lines as we might import multiple movement lines
-		//     with the same product!
-		//MMovementLine moveLine = getMInventoryMoveLine(move, imove);
-		MMovementLine moveLine = null;
-		
-		if(moveLine == null)
-		{
-			moveLine = new MMovementLine(Env.getCtx(), 0 , get_TrxName());
-		}
+
+		MMovementLine moveLine = new MMovementLine(Env.getCtx(), 0 , get_TrxName());
 		
 		try
 		{
@@ -231,57 +230,6 @@ public class ImportExtendedInventoryMove extends SvrProcess
 		}
 		
 		return isImported;
-	}
-	
-	/**
-	 * get MMovementLine unique instance based on  X_I_M_Movement data
-	 * @param move MMovement
-	 * @param imove X_I_M_Movement
-	 * @return  unique instance of MMovementLine
-	 */
-	private MMovementLine getMInventoryMoveLine(MMovement move, X_I_Auto_Movement imove)
-	{
-		
-		final StringBuilder whereClause = new StringBuilder();
-		ArrayList<Object> parameters = new ArrayList<Object>();
-		
-		MColumn[] cols = getMInventoryMoveColumns();
-		
-		int count = 0;
-		
-		for(MColumn col: cols)
-		{			
-			if(X_I_Auto_Movement.COLUMNNAME_AD_Org_ID.equals(col.getColumnName())
-			|| X_I_Auto_Movement.COLUMNNAME_M_Product_ID.equals(col.getColumnName())
-			|| X_I_Auto_Movement.COLUMNNAME_M_Locator_ID .equals(col.getColumnName())
-			|| X_I_Auto_Movement.COLUMNNAME_M_LocatorTo_ID.equals(col.getColumnName()))
-			{
-				whereClause.append(col.getColumnName()).append("=?");
-				parameters.add(imove.get_Value(col.getColumnName()));
-				if(count < 3)
-				{
-					whereClause.append(" AND ");
-					count++;
-				}
-			}		
-		}
-		
-		whereClause.append(" AND M_Movement_ID=?");
-		parameters.add(move.getM_Movement_ID());
-		
-		return new Query(getCtx(), I_M_MovementLine.Table_Name, whereClause.toString(), get_TrxName())
-		.setClient_ID()
-		.setParameters(parameters)
-		.first();		
-	}
-	
-	/**
-	 * get Inventory Move Columns
-	 * @return array MColumn
-	 */
-	private MColumn[] getMInventoryMoveColumns()
-	{
-			return MTable.get(getCtx(),I_M_MovementLine.Table_Name).getColumns(false);
 	}
 	
 	/**
@@ -331,6 +279,82 @@ public class ImportExtendedInventoryMove extends SvrProcess
 		return move;
 	}
 
+	/**
+	 * The storageAllocation hashmap is used to record the quantities already allocated to a movement line to prevent
+	 * double allocating a quantity on hand.
+	 */
+	private HashMap<MStorageOnHand,BigDecimal> storageAllocation = new HashMap<MStorageOnHand,BigDecimal>();
+	private HashMap<X_I_Auto_Movement,BigDecimal> movementShortAllocation = new HashMap<X_I_Auto_Movement,BigDecimal>();
+
+	private BigDecimal getStorageAllocation(MStorageOnHand storage) {
+		BigDecimal res = storageAllocation.get(storage);
+		if (res == null) {
+			res = BigDecimal.ZERO;
+		}
+		return res;
+	}
+
+	private BigDecimal getStorageAvailable(MStorageOnHand storage) {
+		return storage.getQtyOnHand().subtract(getStorageAllocation(storage));
+	}
+
+	private MStorageOnHand allocateStorageForImportLine(X_I_Auto_Movement imove) {
+		MStorageOnHand max_storage = getMaxStorageForImportLine(imove);
+		if (max_storage != null) {
+			BigDecimal prevAllocation = getStorageAllocation(max_storage);
+			BigDecimal qtyAvailable = getStorageAvailable(max_storage);
+			BigDecimal qtyToAllocate = imove.getMovementQty();
+			if (qtyToAllocate.compareTo(qtyAvailable) > 0) {
+				movementShortAllocation.put(imove, qtyToAllocate.subtract(qtyAvailable));
+				qtyToAllocate = qtyAvailable;
+			}
+			storageAllocation.put(max_storage, qtyToAllocate.add(prevAllocation));
+		}
+		return max_storage;
+	}
+
+	private MStorageOnHand getMaxStorageForImportLine(X_I_Auto_Movement imove) {
+		Collection<Integer> warehouse_list = new ArrayList<>();
+		//when there is no locator with that name we search for a warehouse
+		int swarehouse_id = getID(MWarehouse.Table_Name,"Value = ?", new Object[] {imove.getLocatorValue()});
+		if (swarehouse_id > 0) {
+			warehouse_list.add(swarehouse_id);
+		} else {
+			// when we could not find a single warehouse we try to find a list of warehouses
+			Collection<X_M_Warehouse> wlist = new Query(getCtx(),MWarehouse.Table_Name,"(? like '%|' || Value || '|%')",get_TrxName()).setClient_ID()
+			.setParameters(new Object[] {imove.getLocatorValue()}).list();
+			for(X_M_Warehouse wh : wlist) {
+				warehouse_list.add(wh.getM_Warehouse_ID());
+			}
+		}
+		List<MStorageOnHand> storagelist = new ArrayList<MStorageOnHand>(); 
+		for (Integer warehouse_id : warehouse_list) {	
+			for(MStorageOnHand s : MStorageOnHand.getWarehouse(getCtx(), warehouse_id, imove.getM_Product_ID(), 0, null, true, true, 0, get_TrxName(), false)) {
+				storagelist.add(s);
+			}
+		}
+		// iterate through the entries and remove those without unallocated qtyonhand
+		for (Iterator<MStorageOnHand> it=storagelist.iterator(); it.hasNext();) {
+		    if (getStorageAvailable(it.next()).compareTo(BigDecimal.ZERO) <= 0)
+		        it.remove();
+		}
+		if (storagelist.size() < 1) {
+			return null;
+		}
+		return Collections.max(storagelist,new Comparator<MStorageOnHand>() {
+			@Override
+			public int compare(MStorageOnHand o1, MStorageOnHand o2) {
+				// sort by 
+				// 1. the locator priority
+				// 2. the unallocated qtyonhand
+				int c1 = Integer.compare(o1.getM_Locator().getPriorityNo(),o2.getM_Locator().getPriorityNo());
+				if (c1 != 0) {
+					return c1;
+				}
+				return getStorageAvailable(o1).compareTo(getStorageAvailable(o2));
+			}
+		});
+	}
 	
 	/**
 	 * fill IDs values based on Search Key 
@@ -339,6 +363,8 @@ public class ImportExtendedInventoryMove extends SvrProcess
 	{
 		for(X_I_Auto_Movement imove : getRecords(false, m_IsImportOnlyNoErrors))
 		{
+			StringBuilder err = new StringBuilder("");
+			
 			//if(imov.getAD_Org_ID()==0)
 				imove.setAD_Org_ID(getID(MOrg.Table_Name,"Value = ?", new Object[]{imove.getOrgValue()}));
 			if(imove.getM_Product_ID()==0)
@@ -346,20 +372,11 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			//if(imov.getM_Locator_ID()==0)
 				imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{imove.getLocatorValue()}));
 				if(imove.getM_Locator_ID() <= 0 && imove.getM_Product_ID() > 0) {
-					//when there is no locator with that name we search for a warehouse
-					int warehouse_id = getID(MWarehouse.Table_Name,"Value = ?", new Object[] {imove.getLocatorValue()});
-					if (warehouse_id > 0) {
-						//when we have found a warehouse we search for a single locator having sufficient quantity on hand
-						//we do not handle the case where there are multiple movement of the same product from different
-						//locators to be guessed.
-						MStorageOnHand[] storages = MStorageOnHand.getWarehouse(getCtx(), warehouse_id, imove.getM_Product_ID(), 0, null, true, true, 0, get_TrxName(), false);
-						for (MStorageOnHand storage:storages) {
-							if (storage.getQtyOnHand().compareTo(imove.getMovementQty()) >= 0) {
-								// we found a storage locator having sufficient quantity on hand
-								imove.setM_Locator_ID(storage.getM_Locator_ID());
-								break;
-							}
-						}
+					MStorageOnHand max_storage = allocateStorageForImportLine(imove);
+					if (max_storage != null) {
+						imove.setM_Locator_ID(max_storage.getM_Locator_ID());
+					} else {
+						err.append(" @M_Product_ID@/@M_Warehouse_ID@ @DRP-060@,");
 					}
 				}
 			//if(imov.getM_LocatorTo_ID()==0)
@@ -380,7 +397,6 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			
 			imove.saveEx();
 			
-			StringBuilder err = new StringBuilder("");
 			if(imove.getAD_Org_ID() <=0)
 				err.append(" @AD_Org_ID@ @NotFound@,");
 			
@@ -396,15 +412,62 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			if(imove.getC_DocType_ID()<=0)
 				err.append(" @C_DocType_ID@ @NotFound@,");
 			
+			MStorageOnHand storage = MStorageOnHand.get(getCtx(), imove.getM_Locator_ID(), imove.getM_Product_ID(), 0, null, get_TrxName());
+			if (storage == null || storage.getQtyOnHand().compareTo(BigDecimal.ZERO) <= 0) {
+				// there is no qty on hand for this movement line, set an error
+				err.append(" @M_Product_ID@/@M_Locator_ID@ @DRP-060@,");
+			}
+			
+			
 			if(err.toString()!=null && err.toString().length()>0)
 			{
 				notimported++;
 				imove.setI_ErrorMsg(Msg.parseTranslation(getCtx(), err.toString()));
-				imove.saveEx();
+				imove.saveEx(get_TrxName());
 			}		
 		}
 	}
-	
+
+	/**
+	 * Search for Movement Lines to import with insufficient qty on hand at the
+	 * assigned source locator and split these lines up if there is another locator
+	 * found with qty on hand for the product in question
+	 */
+	private void splitInsufficientQOHMovements() {
+		while (!movementShortAllocation.isEmpty()) {
+			X_I_Auto_Movement imove = movementShortAllocation.keySet().iterator().next();
+			BigDecimal shortAllocation = movementShortAllocation.remove(imove);
+			X_I_Auto_Movement newline = new X_I_Auto_Movement(getCtx(), 0, get_TrxName());
+			X_I_Auto_Movement.copyValues(imove, newline);
+			newline.setAD_Org_ID(imove.getAD_Org_ID());
+			newline.setMovementQty(shortAllocation);
+			MStorageOnHand max_storage = allocateStorageForImportLine(newline);
+			if (max_storage != null) {
+				newline.setM_Locator_ID(max_storage.getM_Locator_ID());
+				imove.setMovementQty(imove.getMovementQty().subtract(shortAllocation));
+				newline.saveEx(get_TrxName());
+				imove.saveEx(get_TrxName());
+			} else {
+				// here we handle the case when we do not have sufficient qtyonhand for the
+				// reqested product. We have two options:
+				// 1. If the product is on order we can generate a PO for the product
+				// 2. If the product is not on order and the source of this movement is a
+				//    customer order, we'll have to cancel the order and report the case as
+				//    this should be prevented to happen in the first place
+				//
+				// TODO: Extend the M_Product Interface to let us find out about the isonorder status
+				//       and implement the logic to generate the PO/Order Cancel
+				//
+				// For now we generate a new line with the missing qty and no locator (as we don't know
+				// where to get the product from:
+				newline.setI_ErrorMsg(newline.getI_ErrorMsg() + Msg.parseTranslation(getCtx()," @M_Product_ID@/@M_Locator_ID@ @DRP-060@,"));
+				imove.setMovementQty(imove.getMovementQty().subtract(shortAllocation));
+				newline.saveEx(get_TrxName());
+				imove.saveEx(get_TrxName());
+			}
+		}
+	}
+
 	/**
 	 * get a record's ID 
 	 * @param tableName String
