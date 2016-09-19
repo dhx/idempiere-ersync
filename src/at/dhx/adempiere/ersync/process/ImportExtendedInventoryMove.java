@@ -19,6 +19,8 @@ package at.dhx.adempiere.ersync.process;
 
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.compiere.model.I_M_Movement;
 import org.compiere.model.MBPartner;
 import org.compiere.model.MCampaign;
@@ -37,16 +40,19 @@ import org.compiere.model.MMovement;
 import org.compiere.model.MMovementLine;
 import org.compiere.model.MOrg;
 import org.compiere.model.MProduct;
+import org.compiere.model.MProductPO;
 import org.compiere.model.MProject;
 import org.compiere.model.MShipper;
 import org.compiere.model.MStorageOnHand;
 import org.compiere.model.MWarehouse;
+import org.compiere.model.PO;
 import org.compiere.model.Query;
 import org.compiere.model.X_M_Warehouse;
 import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
 import org.compiere.util.Env;
 import org.compiere.util.Msg;
+import org.compiere.util.Trx;
 
 import at.dhx.adempiere.ersync.model.X_I_Auto_Movement;
 
@@ -139,8 +145,14 @@ public class ImportExtendedInventoryMove extends SvrProcess
 	{
 		isImported = false;
 		
+		// m_IsImportOnlyNoError=='Y' -> do not import movement lines when they have an error
+		//                               or there are other lines with the same documentno having an error
+		// m_IsImportOnlyNoError=='N' -> do not import movement lines when they have an error
 		for(X_I_Auto_Movement imove : getRecords(false,m_IsImportOnlyNoErrors))
 		{
+			if (imove.getI_ErrorMsg() != null) {
+				continue;
+			}
 			MMovement mov = importMInventoryMove(imove);			
 			if(mov!= null)
 			{    
@@ -192,9 +204,32 @@ public class ImportExtendedInventoryMove extends SvrProcess
 		for(String idx : idsPr)
 		{
 			int id = Integer.parseInt(idx);
-			MMovement move = new MMovement(Env.getCtx(), id, get_TrxName());
-			move.processIt(m_docAction);
-			move.saveEx();
+			Trx trx = Trx.get(get_TrxName(), false);
+			Savepoint savepoint = null;
+			try {
+				savepoint = trx.setSavepoint(null);
+				MMovement move = new MMovement(Env.getCtx(), id, get_TrxName());
+				move.processIt(m_docAction);
+				move.saveEx();
+			} catch (SQLException e) {
+				throw new RuntimeException(e.getLocalizedMessage(), e);
+			} catch (AdempiereException ae) {
+				try {
+					trx.rollback(savepoint);
+					savepoint = null;
+				} catch (SQLException e1) {
+					throw new RuntimeException(e1.getLocalizedMessage(), e1);
+				}
+				log.warning("Could not process movement (" + idx + "): " + ae.getLocalizedMessage());
+			} finally {
+				if (savepoint != null) {
+					try {
+						trx.releaseSavepoint(savepoint);
+					} catch (SQLException e) {
+						throw new RuntimeException(e.getLocalizedMessage(), e);
+					}
+				}
+			}
 		}
 	}
 	
@@ -367,8 +402,18 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			
 			//if(imov.getAD_Org_ID()==0)
 				imove.setAD_Org_ID(getID(MOrg.Table_Name,"Value = ?", new Object[]{imove.getOrgValue()}));
-			if(imove.getM_Product_ID()==0)
-				imove.setM_Product_ID(getID(MProduct.Table_Name,"Value = ?", new Object[]{imove.getProductValue()}));
+			if(imove.getM_Product_ID()==0) {
+				int mpi = getID(MProduct.Table_Name,"Value = trim(leading ' 0' from ?)", new Object[]{imove.getProductValue()});
+				if (mpi <= 0) {
+					PO first = new Query(getCtx(),MProductPO.Table_Name,"upc = trim(leading ' 0' from ?)",get_TrxName()).setClient_ID()
+							.setParameters(imove.getProductValue()).first();
+					if (first != null) {
+						mpi = first.get_ValueAsInt(MProductPO.COLUMNNAME_M_Product_ID);
+					}
+				}
+				imove.setM_Product_ID(mpi);
+			}
+				
 			//if(imov.getM_Locator_ID()==0)
 				imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{imove.getLocatorValue()}));
 				if(imove.getM_Locator_ID() <= 0 && imove.getM_Product_ID() > 0) {
@@ -376,7 +421,7 @@ public class ImportExtendedInventoryMove extends SvrProcess
 					if (max_storage != null) {
 						imove.setM_Locator_ID(max_storage.getM_Locator_ID());
 					} else {
-						err.append(" @M_Product_ID@/@M_Warehouse_ID@ @DRP-060@,");
+						err.append(" @M_Product_ID@/@M_Warehouse_ID@: Keinen Lagerort mit Lagerbestand gefunden,");
 					}
 				}
 			//if(imov.getM_LocatorTo_ID()==0)
@@ -394,9 +439,6 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			if(imove.getAD_OrgTrx_ID()==0)
 				imove.setAD_OrgTrx_ID(getID(MOrg.Table_Name, "Value = ?", new Object[]{imove.getOrgTrxValue()}));
 				
-			
-			imove.saveEx();
-			
 			if(imove.getAD_Org_ID() <=0)
 				err.append(" @AD_Org_ID@ @NotFound@,");
 			
@@ -411,20 +453,24 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			
 			if(imove.getC_DocType_ID()<=0)
 				err.append(" @C_DocType_ID@ @NotFound@,");
-			
-			MStorageOnHand storage = MStorageOnHand.get(getCtx(), imove.getM_Locator_ID(), imove.getM_Product_ID(), 0, null, get_TrxName());
-			if (storage == null || storage.getQtyOnHand().compareTo(BigDecimal.ZERO) <= 0) {
-				// there is no qty on hand for this movement line, set an error
-				err.append(" @M_Product_ID@/@M_Locator_ID@ @DRP-060@,");
+
+			if (imove.getM_Locator_ID() > 0) {
+				MStorageOnHand storage = MStorageOnHand.get(getCtx(), imove.getM_Locator_ID(), imove.getM_Product_ID(), 0, null, get_TrxName());
+				if (storage == null || storage.getQtyOnHand().compareTo(BigDecimal.ZERO) <= 0) {
+					// there is no qty on hand for this movement line, set an error
+					err.append(" @M_Product_ID@/@M_Locator_ID@: Kein Lagerbestand,");
+				}
 			}
-			
 			
 			if(err.toString()!=null && err.toString().length()>0)
 			{
 				notimported++;
 				imove.setI_ErrorMsg(Msg.parseTranslation(getCtx(), err.toString()));
-				imove.saveEx(get_TrxName());
-			}		
+			} else {
+				imove.setI_ErrorMsg(null);
+			}
+			
+			imove.saveEx(get_TrxName());
 		}
 	}
 
@@ -460,7 +506,7 @@ public class ImportExtendedInventoryMove extends SvrProcess
 				//
 				// For now we generate a new line with the missing qty and no locator (as we don't know
 				// where to get the product from:
-				newline.setI_ErrorMsg(newline.getI_ErrorMsg() + Msg.parseTranslation(getCtx()," @M_Product_ID@/@M_Locator_ID@ @DRP-060@,"));
+				newline.setI_ErrorMsg(newline.getI_ErrorMsg() + Msg.parseTranslation(getCtx()," @M_Product_ID@/@M_Locator_ID@: Keine weiteren Lagerorte gefunden,"));
 				imove.setMovementQty(imove.getMovementQty().subtract(shortAllocation));
 				newline.saveEx(get_TrxName());
 				imove.saveEx(get_TrxName());
@@ -488,14 +534,20 @@ public class ImportExtendedInventoryMove extends SvrProcess
 	 * @param isWithError boolean
 	 * @return collection of X_I_Auto_Movement records
 	 */
-	private Collection<X_I_Auto_Movement> getRecords(boolean imported, boolean isWithError)
+	private Collection<X_I_Auto_Movement> getRecords(boolean imported, boolean isWithoutError)
 	{
 		final StringBuffer whereClause = new StringBuffer(X_I_Auto_Movement.COLUMNNAME_I_IsImported)
 		.append("=?"); 
 		
-		if(isWithError)
+		if(isWithoutError)
 		{
-		    whereClause.append(" AND ").append(X_I_Auto_Movement.COLUMNNAME_I_ErrorMsg).append(" IS NULL");
+		    whereClause.append(" AND ")
+		    .append(X_I_Auto_Movement.COLUMNNAME_DocumentNo)
+		    .append(" NOT IN (")
+		    .append("SELECT DISTINCT ").append(X_I_Auto_Movement.COLUMNNAME_DocumentNo).append(" FROM ")
+		    .append(X_I_Auto_Movement.Table_Name).append(" WHERE ")
+		    .append(X_I_Auto_Movement.COLUMNNAME_I_ErrorMsg).append(" IS NOT NULL")
+		    .append(")");
 		}		
 
 		return new Query(getCtx(),X_I_Auto_Movement.Table_Name,whereClause.toString(),get_TrxName())
