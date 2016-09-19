@@ -26,7 +26,7 @@ import org.compiere.util.KeyNamePair;
  *  @version Release 3.1
  */
 @SuppressWarnings("all")
-public interface I_I_Web_Order 
+public interface I_I_Web_Order extends I_I_Extended_Order
 {
 
     /** TableName=I_Web_Order */

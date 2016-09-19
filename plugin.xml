@@ -18,6 +18,14 @@
       </process>
    </extension>
    <extension
+         id="at.dhx.adempiere.ersync.process.ImportPurchaseOrder"
+         name="at.dhx.adempiere.ersync.process.ImportPurchaseOrder"
+         point="org.adempiere.base.Process">
+      <process
+            class="at.dhx.adempiere.ersync.process.ImportPurchaseOrder">
+      </process>
+   </extension>
+   <extension
          id="at.dhx.adempiere.ersync.process.ImportAutoInventoryMove"
          name="at.dhx.adempiere.ersync.process.ImportAutoInventoryMove"
          point="org.adempiere.base.Process">

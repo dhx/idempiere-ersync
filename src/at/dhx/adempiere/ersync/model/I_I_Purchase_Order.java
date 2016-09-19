@@ -5,7 +5,7 @@
  * under the terms version 2 of the GNU General Public License as published   *
  * by the Free Software Foundation. This program is distributed in the hope   *
  * that it will be useful, but WITHOUT ANY WARRANTY, without even the implied *
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.           *
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPurchaseE.           *
  * See the GNU General Public License for more details.                       *
  * You should have received a copy of the GNU General Public License along    *
  * with this program, if not, write to the Free Software Foundation, Inc.,    *
@@ -21,16 +21,16 @@ import java.sql.Timestamp;
 import org.compiere.model.*;
 import org.compiere.util.KeyNamePair;
 
-/** Generated Interface for I_POS_Order
+/** Generated Interface for I_Purchase_Order
  *  @author iDempiere (generated) 
  *  @version Release 3.1
  */
 @SuppressWarnings("all")
-public interface I_I_POS_Order extends I_I_Extended_Order
+public interface I_I_Purchase_Order extends I_I_Extended_Order
 {
 
-    /** TableName=I_POS_Order */
-    public static final String Table_Name = "I_POS_Order";
+    /** TableName=I_Purchase_Order */
+    public static final String Table_Name = "I_Purchase_Order";
 
     /** AD_Table_ID=1000003 */
     public static final int Table_ID = MTable.getTable_ID(Table_Name);
@@ -634,23 +634,23 @@ public interface I_I_POS_Order extends I_I_Extended_Order
 	  */
 	public boolean isI_IsImported();
 
-    /** Column name I_POS_Order_ID */
-    public static final String COLUMNNAME_I_POS_Order_ID = "I_POS_Order_ID";
+    /** Column name I_Purchase_Order_ID */
+    public static final String COLUMNNAME_I_Purchase_Order_ID = "I_Purchase_Order_ID";
 
-	/** Set Import POS Order	  */
-	public void setI_POS_Order_ID (int I_POS_Order_ID);
+	/** Set Import Purchase Order	  */
+	public void setI_Purchase_Order_ID (int I_Purchase_Order_ID);
 
-	/** Get Import POS Order	  */
-	public int getI_POS_Order_ID();
+	/** Get Import Purchase Order	  */
+	public int getI_Purchase_Order_ID();
 
-    /** Column name I_POS_Order_UU */
-    public static final String COLUMNNAME_I_POS_Order_UU = "I_POS_Order_UU";
+    /** Column name I_Purchase_Order_UU */
+    public static final String COLUMNNAME_I_Purchase_Order_UU = "I_Purchase_Order_UU";
 
-	/** Set I_POS_Order_UU	  */
-	public void setI_POS_Order_UU (String I_POS_Order_UU);
+	/** Set I_Purchase_Order_UU	  */
+	public void setI_Purchase_Order_UU (String I_Purchase_Order_UU);
 
-	/** Get I_POS_Order_UU	  */
-	public String getI_POS_Order_UU();
+	/** Get I_Purchase_Order_UU	  */
+	public String getI_Purchase_Order_UU();
 
     /** Column name IsActive */
     public static final String COLUMNNAME_IsActive = "IsActive";

@@ -21,6 +21,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Properties;
 import java.util.logging.Level;
 
 import org.compiere.model.MBPartner;
@@ -41,18 +42,19 @@ import org.compiere.process.SvrProcess;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
 
-import at.dhx.adempiere.ersync.model.I_I_Web_Order;
+import at.dhx.adempiere.ersync.model.I_I_Extended_Order;
+import at.dhx.adempiere.ersync.model.X_I_POS_Order;
 import at.dhx.adempiere.ersync.model.X_I_Web_Order;
 
 /**
- * Import Order adapted from I_Order)
+ * Import Extended Order adapted from Import Order
  * 
  * @author Oscar Gomez <li>BF [ 2936629 ] Error when creating bpartner in the
  *         importation order <li>
  *         https://sourceforge.net/tracker/?func=detail&aid
  *         =2936629&group_id=176962&atid=879332
  * @author Jorg Janke
- * @author modifications for Weborders by Daniel Haag (dhx.at)
+ * @author modifications for Extended Orders (Web,POS) by Daniel Haag (dhx.at)
  */
 public class ImportExtendedOrder extends SvrProcess {
 	
@@ -85,6 +87,15 @@ public class ImportExtendedOrder extends SvrProcess {
 		this.m_TableName = m_TableName;
 	}
 
+	public I_I_Extended_Order getI_Extended_Order(Properties ctx, ResultSet rs, String trxName) {
+		if(getM_TableName().toLowerCase().equals("i_web_order")) {
+			return new X_I_Web_Order(getCtx(), rs, get_TrxName());
+		} else if(getM_TableName().toLowerCase().equals("i_pos_order")) {
+			return new X_I_POS_Order(getCtx(), rs, get_TrxName());
+		}
+		throw new IllegalStateException("Invalid table for extended order: " + getM_TableName());
+	}
+	
 	/**
 	 * Prepare - e.g., get Parameters.
 	 */
@@ -488,7 +499,8 @@ public class ImportExtendedOrder extends SvrProcess {
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
 				.append(" o ")
-				.append("SET C_BPartner_ID=(SELECT C_BPartnerCashTrx_ID FROM AD_ClientInfo c")
+				.append("SET (C_BPartner_ID,BPartnerValue)=(SELECT c.C_BPartnerCashTrx_ID,bp.Value FROM AD_ClientInfo c")
+				.append(" INNER JOIN C_BPartner bp ON bp.C_BPartner_ID = c.C_BPartnerCashTrx_ID")
 				.append(" WHERE o.AD_Client_ID=c.AD_Client_ID) ")
 				.append("WHERE C_BPartner_ID IS NULL AND BPartnerValue IS NULL AND Name IS NULL")
 				.append(" AND I_IsImported<>'Y'").append(clientCheck);
@@ -742,7 +754,8 @@ public class ImportExtendedOrder extends SvrProcess {
 				.append(getM_TableName())
 				.append(" o ")
 				.append("SET C_Tax_ID=(SELECT MAX(C_Tax_ID) FROM C_Tax t")
-				.append(" WHERE o.TaxIndicator=t.TaxIndicator AND o.AD_Client_ID=t.AD_Client_ID) ")
+				.append(" WHERE o.TaxIndicator=t.TaxIndicator AND o.AD_Client_ID=t.AD_Client_ID")
+				.append(" AND (t.sopotype = 'B' or t.sopotype = IF(o.IsSOTrx='Y','S','P'))) ")
 				.append("WHERE C_Tax_ID IS NULL AND TaxIndicator IS NOT NULL")
 				.append(" AND I_IsImported<>'Y'").append(clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
@@ -781,8 +794,7 @@ public class ImportExtendedOrder extends SvrProcess {
 			pstmt = DB.prepareStatement(sql.toString(), get_TrxName());
 			rs = pstmt.executeQuery();
 			while (rs.next()) {
-				I_I_Web_Order imp = new X_I_Web_Order(getCtx(), rs,
-						get_TrxName());
+				I_I_Extended_Order imp = this.getI_Extended_Order(getCtx(), rs,	get_TrxName());
 				if (imp.getBPartnerValue() == null) {
 					if (imp.getEMail() != null)
 						imp.setBPartnerValue(imp.getEMail().toLowerCase());
@@ -807,7 +819,7 @@ public class ImportExtendedOrder extends SvrProcess {
 							get_TrxName());
 				}
 				if (bp == null) {
-					if (imp.getName() == null)
+					if (imp.getName() == null || imp.getName().length() <= 0)
 						continue;
 
 					bp = new MBPartner(getCtx(), -1, get_TrxName());
@@ -940,6 +952,22 @@ public class ImportExtendedOrder extends SvrProcess {
 		if (log.isLoggable(Level.FINE))
 			log.fine("Set BillTo Location from other line=" + no);
 
+		// If there is no bpartner location set until now we take the bill to address to ship to
+		sql = new StringBuilder("UPDATE ")
+			.append(getM_TableName())
+			.append(" o ")
+			.append("SET C_BPartner_Location_ID=(SELECT MAX(BillTo_ID) FROM ")
+			.append(getM_TableName())
+			.append(" wo")
+			.append(" WHERE wo.DocumentNo = o.DocumentNo AND wo.C_BPartner_ID=o.C_BPartner_ID")
+			.append(" AND wo.AD_Client_ID=o.AD_Client_ID AND wo.AD_Org_ID=o.AD_Org_ID")
+			.append(") ")
+			.append("WHERE C_BPartner_ID IS NOT NULL AND C_BPartner_Location_ID IS NULL")
+			.append(" AND I_IsImported<>'Y'").append(clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set BP Location from BillTo Address=" + no);		
+		
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
 				.append(" o ")
@@ -1039,8 +1067,8 @@ public class ImportExtendedOrder extends SvrProcess {
 				MOrder order = null;
 				int lineNo = 0;
 				while (rs.next()) {
-					I_I_Web_Order imp = new X_I_Web_Order(getCtx(), rs,
-							get_TrxName());
+					I_I_Extended_Order imp = this.getI_Extended_Order(getCtx(), rs, get_TrxName());
+						
 					String cmpDocumentNo = imp.getDocumentNo();
 					if (cmpDocumentNo == null)
 						cmpDocumentNo = "";
@@ -1132,7 +1160,7 @@ public class ImportExtendedOrder extends SvrProcess {
 							order.setFreightCostRule("F");
 							order.setDeliveryViaRule(MOrder.DELIVERYVIARULE_Shipper);
 							order.setM_Shipper_ID(1000002);
-						}			
+						}
 
 						order.saveEx();
 
