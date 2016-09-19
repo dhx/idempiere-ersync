@@ -396,7 +396,7 @@ public class ImportExtendedInventoryMove extends SvrProcess
 	 */
 	private void fillIDValues()
 	{
-		for(X_I_Auto_Movement imove : getRecords(false, m_IsImportOnlyNoErrors))
+		for(X_I_Auto_Movement imove : getRecords(false, false))
 		{
 			StringBuilder err = new StringBuilder("");
 			
