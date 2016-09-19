@@ -755,7 +755,7 @@ public class ImportExtendedOrder extends SvrProcess {
 				.append(" o ")
 				.append("SET C_Tax_ID=(SELECT MAX(C_Tax_ID) FROM C_Tax t")
 				.append(" WHERE o.TaxIndicator=t.TaxIndicator AND o.AD_Client_ID=t.AD_Client_ID")
-				.append(" AND (t.sopotype = 'B' or t.sopotype = IF(o.IsSOTrx='Y','S','P'))) ")
+				.append(" AND (t.sopotype = 'B' or t.sopotype = CASE WHEN o.IsSOTrx='Y' THEN 'S' ELSE 'P' END)) ")
 				.append("WHERE C_Tax_ID IS NULL AND TaxIndicator IS NOT NULL")
 				.append(" AND I_IsImported<>'Y'").append(clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
