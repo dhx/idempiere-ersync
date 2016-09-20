@@ -20,15 +20,18 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Timestamp;
 import java.util.Properties;
 import java.util.logging.Level;
 
+import org.adempiere.exceptions.AdempiereException;
 import org.compiere.model.MBPartner;
 import org.compiere.model.MBPartnerLocation;
 import org.compiere.model.MBankAccount;
 import org.compiere.model.MDocType;
 import org.compiere.model.MLocation;
+import org.compiere.model.MMovement;
 import org.compiere.model.MOrder;
 import org.compiere.model.MOrderLine;
 import org.compiere.model.MPayment;
@@ -41,6 +44,7 @@ import org.compiere.process.ProcessInfoParameter;
 import org.compiere.process.SvrProcess;
 import org.compiere.util.DB;
 import org.compiere.util.Env;
+import org.compiere.util.Trx;
 
 import at.dhx.adempiere.ersync.model.I_I_Extended_Order;
 import at.dhx.adempiere.ersync.model.X_I_POS_Order;
@@ -502,7 +506,9 @@ public class ImportExtendedOrder extends SvrProcess {
 				.append("SET (C_BPartner_ID,BPartnerValue)=(SELECT c.C_BPartnerCashTrx_ID,bp.Value FROM AD_ClientInfo c")
 				.append(" INNER JOIN C_BPartner bp ON bp.C_BPartner_ID = c.C_BPartnerCashTrx_ID")
 				.append(" WHERE o.AD_Client_ID=c.AD_Client_ID) ")
-				.append("WHERE C_BPartner_ID IS NULL AND BPartnerValue IS NULL AND Name IS NULL")
+				.append("WHERE C_BPartner_ID IS NULL ")
+				.append("AND (BPartnerValue IS NULL OR BPartnerValue = '') ")
+				.append("AND (Name IS NULL OR Name = '')")
 				.append(" AND I_IsImported<>'Y'").append(clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE))
@@ -1079,19 +1085,7 @@ public class ImportExtendedOrder extends SvrProcess {
 							|| oldBillTo_ID != imp.getBillTo_ID()
 							|| !oldDocumentNo.equals(cmpDocumentNo)) {
 						if (order != null) {
-							if (m_docAction != null && m_docAction.length() > 0) {
-								order.setDocAction(m_docAction);
-								if (!order.processIt(m_docAction)) {
-									log.warning("Order Process Failed: "
-											+ order + " - "
-											+ order.getProcessMsg());
-									// throw new
-									// IllegalStateException("Order Process Failed: "
-									// + order + " - " + order.getProcessMsg());
-
-								}
-							}
-							order.saveEx();
+							processOrder(order);
 						}
 						oldC_BPartner_ID = imp.getC_BPartner_ID();
 						oldC_BPartner_Location_ID = imp
@@ -1286,18 +1280,7 @@ public class ImportExtendedOrder extends SvrProcess {
 						noInsertLine++;
 				}
 				if (order != null) {
-					if (m_docAction != null && m_docAction.length() > 0) {
-						order.setDocAction(m_docAction);
-						if (!order.processIt(m_docAction)) {
-							log.warning("Order Process Failed: " + order
-									+ " - " + order.getProcessMsg());
-							throw new IllegalStateException(
-									"Order Process Failed: " + order + " - "
-											+ order.getProcessMsg());
-
-						}
-					}
-					order.saveEx();
+					processOrder(order);
 				}
 			} catch (Exception e) {
 				log.log(Level.SEVERE, "Order - " + sql.toString(), e);
@@ -1322,4 +1305,44 @@ public class ImportExtendedOrder extends SvrProcess {
 		return msgreturn.toString();
 	} // doIt
 
+	
+	private void processOrder(MOrder order) {
+		if (m_docAction != null && m_docAction.length() > 0) {
+			Trx trx = Trx.get(get_TrxName(), false);
+			Savepoint savepoint = null;
+			try {
+				savepoint = trx.setSavepoint(null);
+				order.setDocAction(m_docAction);
+				if (!order.processIt(m_docAction)) {
+					log.warning("Order Process Failed: "
+							+ order + " - "
+							+ order.getProcessMsg());
+					throw new AdempiereException("Order Process Failed: "
+					  + order + " - " + order.getProcessMsg());
+				}
+				order.saveEx();
+			} catch (SQLException e) {
+				throw new RuntimeException(e.getLocalizedMessage(), e);
+			} catch (AdempiereException ae) {
+				try {
+					trx.rollback(savepoint);
+					savepoint = null;
+				} catch (SQLException e1) {
+					throw new RuntimeException(e1.getLocalizedMessage(), e1);
+				}
+				log.warning("Order Process Failed with Exception: "
+						+ order + " - "
+						+ ae.getLocalizedMessage());
+			} finally {
+				if (savepoint != null) {
+					try {
+						trx.releaseSavepoint(savepoint);
+					} catch (SQLException e) {
+						throw new RuntimeException(e.getLocalizedMessage(), e);
+					}
+				}
+			}
+		}
+	}
+	
 } // ImportExtendedOrder
