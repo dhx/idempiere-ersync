@@ -126,7 +126,7 @@ public class ImportExtendedInventoryMove extends SvrProcess
 			    move.deleteEx(true);
 			    no++;
 			}
-			if (log.isLoggable(Level.FINE)) log.fine("Delete Old Impored =" + no);
+			if (log.isLoggable(Level.FINE)) log.fine("Delete Old Imported =" + no);
 		}
 		
 		fillIDValues();
