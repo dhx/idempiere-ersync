@@ -529,13 +529,38 @@ public class ImportExtendedOrder extends SvrProcess {
 				.append(getM_TableName())
 				.append(" o ")
 				.append("SET C_Country_ID=(SELECT C_Country_ID FROM C_Country c")
-				.append(" WHERE o.CountryCode=c.CountryCode AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
+				.append(" WHERE upper(o.CountryCode)=c.CountryCode AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
 				.append("WHERE C_Country_ID IS NULL")
 				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
 				.append(" AND I_IsImported<>'Y'").append(clientCheck);
 		no = DB.executeUpdate(sql.toString(), get_TrxName());
 		if (log.isLoggable(Level.FINE))
 			log.fine("Set Country=" + no);
+
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName())
+				.append(" o ")
+				.append("SET C_Country_ID=(SELECT MAX(C_Country_ID) FROM C_Country c")
+				.append(" WHERE c.Name LIKE CONCAT(o.CountryCode,'%') AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
+				.append("WHERE C_Country_ID IS NULL")
+				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
+				.append(" AND I_IsImported<>'Y'").append(clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set Country by Name=" + no);
+
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName())
+				.append(" o ")
+				.append("SET C_Country_ID=(SELECT MAX(C_Country_ID) FROM C_Country c")
+				.append(" WHERE c.Description LIKE CONCAT(o.CountryCode,'%') AND c.AD_Client_ID IN (0, o.AD_Client_ID)) ")
+				.append("WHERE C_Country_ID IS NULL")
+				.append(" AND CountryCode IS NOT NULL AND CountryCode<>''")
+				.append(" AND I_IsImported<>'Y'").append(clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set Country by Description=" + no);
+
 		//
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
