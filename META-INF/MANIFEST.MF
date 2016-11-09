@@ -9,3 +9,6 @@ Require-Bundle: org.adempiere.base;bundle-version="3.1.0",
  org.adempiere.plugin.utils;bundle-version="3.1.0"
 Bundle-Activator: org.adempiere.plugin.utils.AdempiereActivator
 Service-Component: OSGI-INF/*.xml
+Import-Package: org.compiere.model,
+ org.osgi.service.event
+Bundle-ActivationPolicy: lazy

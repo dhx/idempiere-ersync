@@ -3,14 +3,19 @@
  */
 package at.dhx.adempiere.ersync.callout;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import org.adempiere.base.IColumnCallout;
 import org.compiere.model.GridField;
 import org.compiere.model.GridTab;
 import org.compiere.model.Query;
+import org.compiere.util.DB;
+import org.compiere.util.Env;
 
 import at.dhx.adempiere.ersync.model.I_I_Auto_Movement;
+import at.dhx.adempiere.ersync.model.X_I_Auto_Movement;
 import at.dhx.adempiere.ersync.model.X_I_POS_Order;
 import at.dhx.adempiere.ersync.model.X_I_Web_Order;
 
@@ -35,25 +40,9 @@ public class CalloutFromFactory implements IColumnCallout {
 		.setParameters(values).count();
 	}  
 	
-	/* (non-Javadoc)
-	 * @see org.adempiere.base.IColumnCallout#start(java.util.Properties, int, org.compiere.model.GridTab, org.compiere.model.GridField, java.lang.Object, java.lang.Object)
-	 */
-	@Override
-	public String start(Properties ctx, int WindowNo, GridTab mTab,
-			GridField mField, Object value, Object oldValue) {
-		System.out.println(ctx + " - " + WindowNo + " - " + mTab + " - " + mField + " - " + value + " - " + oldValue);
-
-		Integer id = mTab.getRecord_ID();
-		X_I_Web_Order i_web_order = null;
-		if (getCount(ctx,X_I_Web_Order.Table_Name,X_I_Web_Order.COLUMNNAME_I_Web_Order_ID + " = ?", new Object[]{id}) == 1) {
-			i_web_order = new X_I_Web_Order(ctx, id, null);			
-		}
-		X_I_POS_Order i_pos_order = null;
-		if (getCount(ctx,X_I_POS_Order.Table_Name,X_I_POS_Order.COLUMNNAME_I_POS_Order_ID + " = ?", new Object[]{id}) == 1) {
-			i_pos_order = new X_I_POS_Order(ctx, id, null);			
-		}
-		
-		switch (mField.getColumnName()) {
+	private void setTableField(Properties ctx, String targetTable, Object value, String field) {
+		/*
+		switch (field) {
 		case I_I_Auto_Movement.COLUMNNAME_M_Product_ID:
 			Integer M_Product_ID = (Integer)value;
 			if (i_web_order != null && i_web_order.isActive() && !i_web_order.isI_IsImported()) {
@@ -77,7 +66,7 @@ public class CalloutFromFactory implements IColumnCallout {
 				}
 			}
 			break;
-		case I_I_Auto_Movement.COLUMNNAME_ProjectValue:
+		case I_I_Auto_Movement.COLUMNNAME_ProductValue:
 			String ProductValue = (String)value;
 			if (i_web_order != null && i_web_order.isActive() && !i_web_order.isI_IsImported()) {
 				if (!ProductValue.isEmpty() && !i_web_order.getProductValue().equals(ProductValue)) {
@@ -100,7 +89,55 @@ public class CalloutFromFactory implements IColumnCallout {
 				}
 			}
 			break;
+		}*/
+		
+	}
+	
+	/* (non-Javadoc)
+	 * @see org.adempiere.base.IColumnCallout#start(java.util.Properties, int, org.compiere.model.GridTab, org.compiere.model.GridField, java.lang.Object, java.lang.Object)
+	 */
+	@Override
+	public String start(Properties ctx, int WindowNo, GridTab mTab,
+			GridField mField, Object value, Object oldValue) {
+		System.out.println(ctx + " - " + WindowNo + " - " + mTab + " - " + mField + " - " + value + " - " + oldValue);
+
+		//int AD_Client_ID = Env.getContextAsInt(ctx, WindowNo, mTab.getTabNo(), "AD_Client_ID");
+		//Integer id = mTab.getRecord_ID();
+		//int AD_Client_ID2 = (int)mTab.getValue("AD_Client_ID");
+		/*
+		List<String> mtables = new ArrayList<String>();
+		mtables.add(X_I_Web_Order.Table_Name);
+		mtables.add(X_I_POS_Order.Table_Name);
+		mtables.add(X_I_Auto_Movement.Table_Name);
+		
+		if (mtables.contains(mTab.getTableName())) {
+			for (String mtable : mtables) {
+				if (mtable != mTab.getTableName()) {
+					if (getCount(ctx, mtable, mtable + "_id = ?", new Object[]{id}) == 1) {
+						StringBuilder sql = new StringBuilder("UPDATE ").append(mtable)
+								.append(" SET ")
+								.append(mField.getColumnName())
+								.append(" = ? WHERE ")
+								.append(mtable).append("_id = ? ")
+								.append("AND AD_Client_ID = ? ")
+								.append("AND (I_IsImported<>'Y' OR I_IsImported IS NULL)");
+						Object[] params = new Object[]{value, id, new Integer(AD_Client_ID)};
+						DB.executeUpdate(sql.toString(), params, false, null);
+					}
+				}
+			}
 		}
+		*/
+		/*
+		X_I_Web_Order i_web_order = null;
+		if (getCount(ctx,X_I_Web_Order.Table_Name,X_I_Web_Order.COLUMNNAME_I_Web_Order_ID + " = ?", new Object[]{id}) == 1) {
+			i_web_order = new X_I_Web_Order(ctx, id, null);			
+		}
+		X_I_POS_Order i_pos_order = null;
+		if (getCount(ctx,X_I_POS_Order.Table_Name,X_I_POS_Order.COLUMNNAME_I_POS_Order_ID + " = ?", new Object[]{id}) == 1) {
+			i_pos_order = new X_I_POS_Order(ctx, id, null);			
+		}
+		*/
 		return null;
 	}
 
