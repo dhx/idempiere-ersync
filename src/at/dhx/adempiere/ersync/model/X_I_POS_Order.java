@@ -33,7 +33,7 @@ public class X_I_POS_Order extends PO implements I_I_POS_Order, I_Persistent
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20160509L;
+	private static final long serialVersionUID = 20161110L;
 
     /** Standard Constructor */
     public X_I_POS_Order (Properties ctx, int I_POS_Order_ID, String trxName)
@@ -850,6 +850,23 @@ public class X_I_POS_Order extends PO implements I_I_POS_Order, I_Persistent
 		return (Timestamp)get_Value(COLUMNNAME_DateOrdered);
 	}
 
+	/** Set Date Promised.
+		@param DatePromised 
+		Date Order was promised
+	  */
+	public void setDatePromised (Timestamp DatePromised)
+	{
+		set_Value (COLUMNNAME_DatePromised, DatePromised);
+	}
+
+	/** Get Date Promised.
+		@return Date Order was promised
+	  */
+	public Timestamp getDatePromised () 
+	{
+		return (Timestamp)get_Value(COLUMNNAME_DatePromised);
+	}
+
 	/** DeliveryRule AD_Reference_ID=151 */
 	public static final int DELIVERYRULE_AD_Reference_ID=151;
 	/** After Receipt = R */
@@ -1530,6 +1547,23 @@ public class X_I_POS_Order extends PO implements I_I_POS_Order, I_Persistent
 		if (bd == null)
 			 return Env.ZERO;
 		return bd;
+	}
+
+	/** Set Tax ID.
+		@param TaxID 
+		Tax Identification
+	  */
+	public void setTaxID (String TaxID)
+	{
+		set_Value (COLUMNNAME_TaxID, TaxID);
+	}
+
+	/** Get Tax ID.
+		@return Tax Identification
+	  */
+	public String getTaxID () 
+	{
+		return (String)get_Value(COLUMNNAME_TaxID);
 	}
 
 	/** Set Tax Indicator.

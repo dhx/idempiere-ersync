@@ -5,7 +5,7 @@
  * under the terms version 2 of the GNU General Public License as published   *
  * by the Free Software Foundation. This program is distributed in the hope   *
  * that it will be useful, but WITHOUT ANY WARRANTY, without even the implied *
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPurchaseE.           *
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.           *
  * See the GNU General Public License for more details.                       *
  * You should have received a copy of the GNU General Public License along    *
  * with this program, if not, write to the Free Software Foundation, Inc.,    *
@@ -529,6 +529,19 @@ public interface I_I_Purchase_Order extends I_I_Extended_Order
 	  * Date of Order
 	  */
 	public Timestamp getDateOrdered();
+
+    /** Column name DatePromised */
+    public static final String COLUMNNAME_DatePromised = "DatePromised";
+
+	/** Set Date Promised.
+	  * Date Order was promised
+	  */
+	public void setDatePromised (Timestamp DatePromised);
+
+	/** Get Date Promised.
+	  * Date Order was promised
+	  */
+	public Timestamp getDatePromised();
 
     /** Column name DeliveryRule */
     public static final String COLUMNNAME_DeliveryRule = "DeliveryRule";

@@ -5,7 +5,7 @@
  * under the terms version 2 of the GNU General Public License as published   *
  * by the Free Software Foundation. This program is distributed in the hope   *
  * that it will be useful, but WITHOUT ANY WARRANTY, without even the implied *
- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPurchaseE.           *
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.           *
  * See the GNU General Public License for more details.                       *
  * You should have received a copy of the GNU General Public License along    *
  * with this program, if not, write to the Free Software Foundation, Inc.,    *
@@ -33,7 +33,7 @@ public class X_I_Purchase_Order extends PO implements I_I_Purchase_Order, I_Pers
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20160509L;
+	private static final long serialVersionUID = 20161110L;
 
     /** Standard Constructor */
     public X_I_Purchase_Order (Properties ctx, int I_Purchase_Order_ID, String trxName)
@@ -848,6 +848,23 @@ public class X_I_Purchase_Order extends PO implements I_I_Purchase_Order, I_Pers
 	public Timestamp getDateOrdered () 
 	{
 		return (Timestamp)get_Value(COLUMNNAME_DateOrdered);
+	}
+
+	/** Set Date Promised.
+		@param DatePromised 
+		Date Order was promised
+	  */
+	public void setDatePromised (Timestamp DatePromised)
+	{
+		set_Value (COLUMNNAME_DatePromised, DatePromised);
+	}
+
+	/** Get Date Promised.
+		@return Date Order was promised
+	  */
+	public Timestamp getDatePromised () 
+	{
+		return (Timestamp)get_Value(COLUMNNAME_DatePromised);
 	}
 
 	/** DeliveryRule AD_Reference_ID=151 */

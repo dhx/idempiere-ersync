@@ -32,7 +32,7 @@ public interface I_I_POS_Order extends I_I_Extended_Order
     /** TableName=I_POS_Order */
     public static final String Table_Name = "I_POS_Order";
 
-    /** AD_Table_ID=1000003 */
+    /** AD_Table_ID=1000001 */
     public static final int Table_ID = MTable.getTable_ID(Table_Name);
 
     KeyNamePair Model = new KeyNamePair(Table_ID, Table_Name);
@@ -530,6 +530,19 @@ public interface I_I_POS_Order extends I_I_Extended_Order
 	  */
 	public Timestamp getDateOrdered();
 
+    /** Column name DatePromised */
+    public static final String COLUMNNAME_DatePromised = "DatePromised";
+
+	/** Set Date Promised.
+	  * Date Order was promised
+	  */
+	public void setDatePromised (Timestamp DatePromised);
+
+	/** Get Date Promised.
+	  * Date Order was promised
+	  */
+	public Timestamp getDatePromised();
+
     /** Column name DeliveryRule */
     public static final String COLUMNNAME_DeliveryRule = "DeliveryRule";
 
@@ -965,6 +978,19 @@ public interface I_I_POS_Order extends I_I_Extended_Order
 	  * Tax Amount for a document
 	  */
 	public BigDecimal getTaxAmt();
+
+    /** Column name TaxID */
+    public static final String COLUMNNAME_TaxID = "TaxID";
+
+	/** Set Tax ID.
+	  * Tax Identification
+	  */
+	public void setTaxID (String TaxID);
+
+	/** Get Tax ID.
+	  * Tax Identification
+	  */
+	public String getTaxID();
 
     /** Column name TaxIndicator */
     public static final String COLUMNNAME_TaxIndicator = "TaxIndicator";

@@ -33,7 +33,7 @@ public class X_I_Auto_Movement extends PO implements I_I_Auto_Movement, I_Persis
 	/**
 	 *
 	 */
-	private static final long serialVersionUID = 20160901L;
+	private static final long serialVersionUID = 20161110L;
 
     /** Standard Constructor */
     public X_I_Auto_Movement (Properties ctx, int I_Auto_Movement_ID, String trxName)
@@ -47,6 +47,7 @@ public class X_I_Auto_Movement extends PO implements I_I_Auto_Movement, I_Persis
 			setProcessed (false);
 // N
 			setProcessing (false);
+// N
         } */
     }
 

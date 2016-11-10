@@ -18,6 +18,7 @@ package at.dhx.adempiere.ersync.model;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+
 import org.compiere.model.*;
 import org.compiere.util.KeyNamePair;
 
@@ -516,6 +517,16 @@ public interface I_I_Extended_Order
 	  */
 	public Timestamp getDateOrdered();
 
+	/** Set Date Promised.
+	  * Date Order was promised
+	  */
+	public void setDatePromised (Timestamp DatePromised);
+
+	/** Get Date Promised.
+	  * Date Order was promised
+	  */
+	public Timestamp getDatePromised();
+
     /** Column name DeliveryRule */
     public static final String COLUMNNAME_DeliveryRule = "DeliveryRule";
 
@@ -933,6 +944,19 @@ public interface I_I_Extended_Order
 	  * Tax Amount for a document
 	  */
 	public BigDecimal getTaxAmt();
+
+    /** Column name TaxID */
+    public static final String COLUMNNAME_TaxID = "TaxID";
+
+	/** Set Tax ID.
+	  * Tax Identification
+	  */
+	public void setTaxID (String TaxID);
+
+	/** Get Tax ID.
+	  * Tax Identification
+	  */
+	public String getTaxID();
 
     /** Column name TaxIndicator */
     public static final String COLUMNNAME_TaxIndicator = "TaxIndicator";
