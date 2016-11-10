@@ -99,7 +99,7 @@ public class CalloutFromFactory implements IColumnCallout {
 	@Override
 	public String start(Properties ctx, int WindowNo, GridTab mTab,
 			GridField mField, Object value, Object oldValue) {
-		System.out.println(ctx + " - " + WindowNo + " - " + mTab + " - " + mField + " - " + value + " - " + oldValue);
+		//System.out.println(ctx + " - " + WindowNo + " - " + mTab + " - " + mField + " - " + value + " - " + oldValue);
 
 		//int AD_Client_ID = Env.getContextAsInt(ctx, WindowNo, mTab.getTabNo(), "AD_Client_ID");
 		//Integer id = mTab.getRecord_ID();

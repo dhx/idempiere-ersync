@@ -3,9 +3,7 @@
  */
 package at.dhx.adempiere.ersync.event;
 
-import java.util.ArrayList;
 import java.util.Hashtable;
-import java.util.List;
 import java.util.Properties;
 
 import org.adempiere.base.event.AbstractEventHandler;
@@ -20,9 +18,6 @@ import org.osgi.service.event.Event;
 import at.dhx.adempiere.ersync.model.I_I_Auto_Movement;
 import at.dhx.adempiere.ersync.model.I_I_POS_Order;
 import at.dhx.adempiere.ersync.model.I_I_Web_Order;
-import at.dhx.adempiere.ersync.model.X_I_Auto_Movement;
-import at.dhx.adempiere.ersync.model.X_I_POS_Order;
-import at.dhx.adempiere.ersync.model.X_I_Web_Order;
 
 /**
  * @author dhx
@@ -30,6 +25,19 @@ import at.dhx.adempiere.ersync.model.X_I_Web_Order;
  */
 public class CorrectImportEventHandler extends AbstractEventHandler {
 
+	private Hashtable<String,String> htables;
+
+	public CorrectImportEventHandler() {
+		super();
+		// All the products in these tables are to be synchronized when one of
+		// them changes either the M_Product_ID or the ProductValue/UPC (
+		// using UPC when its available and ProductValue otherwise)
+		htables = new Hashtable<String,String>();
+		htables.put(I_I_Web_Order.Table_Name, I_I_Web_Order.COLUMNNAME_UPC);
+		htables.put(I_I_POS_Order.Table_Name, I_I_POS_Order.COLUMNNAME_UPC);
+		htables.put(I_I_Auto_Movement.Table_Name, I_I_Auto_Movement.COLUMNNAME_ProductValue);
+	}
+	
 	/**
 	 * get the number of records matching
 	 * @param ctx Properties
@@ -49,52 +57,80 @@ public class CorrectImportEventHandler extends AbstractEventHandler {
 		if (event.getTopic().equals(IEventTopics.PO_AFTER_CHANGE)) {
 			PO po = getPO(event);
 			
-			Integer id = po.get_ID();
-			Integer m_product_id = po.get_ValueAsInt("M_Product_ID");
-			
-			Integer ad_client_id = po.getAD_Client_ID();
-			
-			Trx m_trx = Trx.get(Trx.createTrxName("PropagateProductData"), true);
-
-			Hashtable<String,String> htables = new Hashtable<String,String>();
-			htables.put(X_I_Web_Order.Table_Name, X_I_Web_Order.COLUMNNAME_UPC);
-			htables.put(X_I_POS_Order.Table_Name, X_I_POS_Order.COLUMNNAME_UPC);
-			htables.put(X_I_Auto_Movement.Table_Name, X_I_Auto_Movement.COLUMNNAME_ProductValue);
-			
+			// First check if the table this event is triggered for is in the list (should not fail as
+			// we only initialized this handler only for those tables)
 			if (htables.containsKey(po.get_TableName())) {
-				String productValue = po.get_ValueAsString(htables.get(po.get_TableName()));
-				for (String mtable : htables.keySet()) {
-					if (!mtable.toLowerCase().equals(po.get_TableName().toLowerCase())) {
-						if (getCount(Env.getCtx(), mtable, mtable + "_id = ?", new Object[]{id}) == 1) {
+				
+				Trx trx = Trx.get(Trx.createTrxName("PropagateProductData"), true);
 
-							Object[] params = null;
-
-							StringBuilder sql = new StringBuilder("UPDATE ").append(mtable)
-									.append(" SET ");
-							
-							if(m_product_id > 0) {
-								sql.append("M_Product_ID = ?, ");
-								params = new Object[]{m_product_id, productValue, id, ad_client_id};
-							} else {
-								params = new Object[]{productValue, id, ad_client_id};
-							}
-							
-							sql.append(htables.get(mtable))
-									.append(" = ? ")
-									.append(" WHERE ")
-									.append(mtable).append("_id = ? ")
-									.append("AND AD_Client_ID = ? ")
-									.append("AND (I_IsImported<>'Y' OR I_IsImported IS NULL)");
-							int no = DB.executeUpdate(sql.toString(), params, false, m_trx.getTrxName());
-							if (no > 0) {
-								System.out.println("Updated product info in related import table '" + mtable + "': "
-										+ "set M_Product_ID: " + m_product_id + ", " + htables.get(mtable) + ": " + productValue);
+				try {
+					Integer id = po.get_ID();
+					Integer ad_client_id = po.getAD_Client_ID();
+					Integer m_product_id = po.get_ValueAsInt("M_Product_ID");
+					String documentno = po.get_ValueAsString("documentno");
+					
+					// depending if this table has UPC or not we take the upc or the productValue for propagation
+					String productValue = po.get_ValueAsString(htables.get(po.get_TableName()));
+					// now we iterate over all the tables to sync
+					for (String mtable : htables.keySet()) {
+						// and if it is not the table the change originates from
+						if (!mtable.toLowerCase().equals(po.get_TableName().toLowerCase())) {
+							// we try to find a single entry in this target table with the same primary record id
+							if (getCount(Env.getCtx(), mtable, mtable + "_id = ?", new Object[]{id}) == 1) {
+	
+								StringBuilder sql = new StringBuilder("UPDATE ")
+										.append(mtable)
+										.append(" SET ");
+								
+								StringBuilder scond = new StringBuilder(" WHERE ")
+										.append(mtable).append("_id = ? ")
+										.append("AND AD_Client_ID = ? ")
+										.append("AND (I_IsImported<>'Y' OR I_IsImported IS NULL) ")
+										.append("AND (documentno = ?) ");
+								
+								// in any case we update the product value
+								StringBuilder sqlSetProductValue = new StringBuilder(sql.toString())
+										.append(htables.get(mtable))
+										.append(" = ? ")
+										.append(scond.toString())
+										.append("AND ")
+										.append(htables.get(mtable))
+										.append(" != ? ");
+								
+								Object[] paramsSetProductValue = new Object[]{productValue, id, ad_client_id, documentno, productValue};
+								int nval = DB.executeUpdate(sqlSetProductValue.toString(), paramsSetProductValue, false, trx.getTrxName());
+								if (nval > 0) {
+									System.out.println("Updated product value in related import table '" + mtable + "'"
+											+ " in document '" + documentno + "' record " + id + ": "
+											+ "set " + htables.get(mtable) + ": " + productValue);
+								}
+								
+								// and the product_id only when its set in the source table
+								if(m_product_id > 0) {
+									StringBuilder sqlSetProductId = new StringBuilder(sql.toString())
+										.append("M_Product_ID = ? ")
+										.append(scond.toString())
+										.append("AND ")
+										.append("M_Product_ID != ? ");
+									Object[] paramsSetProductId = new Object[]{m_product_id, id, ad_client_id, documentno, m_product_id};
+									int nid = DB.executeUpdate(sqlSetProductId.toString(), paramsSetProductId, false, trx.getTrxName());
+									if (nid > 0) {
+										System.out.println("Updated product id in related import table '" + mtable + "'"
+												+ " in document '" + documentno + "' record " + id + ": "
+												+ "set m_product_id: " + m_product_id);
+									}
+								}
 							}
 						}
 					}
+					trx.commit();
+				} catch (Exception e) {
+					trx.rollback();
+					throw e;
+				} finally {
+					trx.close();
 				}
 			}
-			m_trx.commit();
 		}
 	}
 	
@@ -104,9 +140,9 @@ public class CorrectImportEventHandler extends AbstractEventHandler {
 	 */
 	@Override
 	protected void initialize() {
-		registerTableEvent(IEventTopics.PO_AFTER_CHANGE, I_I_Auto_Movement.Table_Name);
-		registerTableEvent(IEventTopics.PO_AFTER_CHANGE, I_I_POS_Order.Table_Name);
-		registerTableEvent(IEventTopics.PO_AFTER_CHANGE, I_I_Web_Order.Table_Name);
+		for(String tablename:htables.keySet()) {
+			registerTableEvent(IEventTopics.PO_AFTER_CHANGE, tablename);
+		}
 	}
 
 }
