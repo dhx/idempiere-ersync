@@ -796,7 +796,7 @@ public class ImportExtendedOrder extends SvrProcess {
 				.append(getM_TableName())
 				.append(" ")
 				.append("SET I_IsImported='E', I_ErrorMsg=I_ErrorMsg||'ERR=Invalid Tax, ' ")
-				.append("WHERE C_Tax_ID IS NULL AND TaxIndicator IS NOT NULL AND (")
+				.append("WHERE C_Tax_ID IS NULL AND TaxIndicator IS NOT NULL AND Taxamt > 0 AND (")
 				.append(" ProductValue IS NOT NULL")
 				.append(" OR M_Product_ID IS NOT NULL")
 				.append(" OR (UPC IS NOT NULL AND UPC <> '') ")
@@ -857,6 +857,9 @@ public class ImportExtendedOrder extends SvrProcess {
 					bp.setClientOrg(imp.getAD_Client_ID(), 0);
 					bp.setValue(imp.getBPartnerValue());
 					bp.setName(imp.getName());
+					if (imp.getTaxID() != null && imp.getTaxID().length() > 0) {
+						bp.setTaxID(imp.getTaxID());
+					}
 					if (!bp.save())
 						continue;
 				}
