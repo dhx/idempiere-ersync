@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.util.Properties;
+
 import org.compiere.model.*;
 import org.compiere.util.Env;
 
@@ -1582,4 +1583,23 @@ public class X_I_Purchase_Order extends PO implements I_I_Purchase_Order, I_Pers
 	{
 		return (String)get_Value(COLUMNNAME_UPC);
 	}
+
+	/** Set Tax ID.
+	@param TaxID 
+	Tax Identification
+	 */
+	public void setTaxID (String TaxID)
+	{
+		set_Value (COLUMNNAME_TaxID, TaxID);
+	}
+	
+	/** Get Tax ID.
+		@return Tax Identification
+	  */
+	public String getTaxID () 
+	{
+		return (String)get_Value(COLUMNNAME_TaxID);
+	}
+	
+
 }
