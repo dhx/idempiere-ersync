@@ -274,7 +274,7 @@ public class ImportExtendedInventoryMove extends SvrProcess
 	 * @return MMovement
 	 */
 	
-	private MMovement importMInventoryMove(X_I_Auto_Movement imove)
+	protected MMovement importMInventoryMove(X_I_Auto_Movement imove)
 	{
 		final String whereClause = I_M_Movement.COLUMNNAME_MovementDate + "=trunc(cast(? as date)) AND "
 	    				  + I_M_Movement.COLUMNNAME_DocumentNo + "=? AND "	  
@@ -309,7 +309,7 @@ public class ImportExtendedInventoryMove extends SvrProcess
 		catch(Exception e)
 		{	
 			imove.setI_ErrorMsg(e.getMessage());
-			isImported = false;
+			return null;
 		}
 		
 		return move;
