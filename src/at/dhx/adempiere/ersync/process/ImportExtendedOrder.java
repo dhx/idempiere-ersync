@@ -890,9 +890,11 @@ public class ImportExtendedOrder extends SvrProcess {
 					loc.setAddress2(imp.getAddress2());
 					loc.setCity(imp.getCity());
 					loc.setPostal(imp.getPostal());
+					// as the set region validates if the region is in the right country
+					// the country has to be set before 
+					loc.setC_Country_ID (imp.getC_Country_ID ());
 					if (imp.getC_Region_ID() != 0)
 						loc.setC_Region_ID(imp.getC_Region_ID());
-					loc.setC_Country_ID(imp.getC_Country_ID());
 					if (!loc.save())
 						continue;
 					//
