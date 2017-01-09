@@ -52,8 +52,8 @@ public class ImportAutoInventoryMove extends ImportExtendedInventoryMove {
 		
 		String new_docno = imove.getDocumentNo();
 		int docn = 0;
-		while (move.getDocStatus() != X_M_Movement.DOCSTATUS_Drafted &&
-				move.getDocStatus() != X_M_Movement.DOCSTATUS_InProgress) {
+		while (!(move.getDocStatus().equals(X_M_Movement.DOCSTATUS_Drafted) ||
+				move.getDocStatus().equals(X_M_Movement.DOCSTATUS_InProgress))) {
 			// to the movement we found we cannot add items, so we have to create a new documentno
 			docn++;
 			new_docno = imove.getDocumentNo() + "-" + String.format("%02d", docn);
