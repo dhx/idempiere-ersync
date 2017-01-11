@@ -432,9 +432,11 @@ public class ImportExtendedInventoryMove extends SvrProcess
 					I_M_Product mprod = new MProduct(getCtx(), imove.getM_Product_ID(), get_TrxName());
 					if (mprod.isOnOrder()) {
 						// TODO: Generate a PO for this product, for now we just mark the entry as processed
-						err.append(" @M_Product_ID@: Kein Lagerbestand -> Bestellware,");
-						imove.setProcessed(true);
-						imove.setI_IsImported(true);
+						if (! imove.getDocumentNo().endsWith("-BW")) {
+							imove.setDocumentNo(imove.getDocumentNo() + "-BW");
+						}
+						imove.setLocatorValue("Bestelllager");
+						imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{imove.getLocatorValue()}));
 					} else {
 						if(imove.getM_Locator_ID()==0)
 							err.append(" @M_Product_ID@/@M_Warehouse_ID@: Keinen Lagerort mit Lagerbestand gefunden,");
