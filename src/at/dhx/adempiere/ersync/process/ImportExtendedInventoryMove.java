@@ -431,10 +431,8 @@ public class ImportExtendedInventoryMove extends SvrProcess
 					imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{imove.getLocatorValue()}));
 					I_M_Product mprod = new MProduct(getCtx(), imove.getM_Product_ID(), get_TrxName());
 					if (mprod.isOnOrder()) {
-						// TODO: Generate a PO for this product, for now we just mark the entry as processed
-						if (! imove.getDocumentNo().endsWith("-BW")) {
-							imove.setDocumentNo(imove.getDocumentNo() + "-BW");
-						}
+						// TODO: Generate a PO for this product, for now we just take the products from a hard coded
+						//       locator
 						imove.setLocatorValue("Bestelllager");
 						imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{imove.getLocatorValue()}));
 					} else {
