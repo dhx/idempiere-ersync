@@ -432,9 +432,14 @@ public class ImportExtendedInventoryMove extends SvrProcess
 					I_M_Product mprod = new MProduct(getCtx(), imove.getM_Product_ID(), get_TrxName());
 					if (mprod.isOnOrder()) {
 						// TODO: Generate a PO for this product, for now we just take the products from a hard coded
-						//       locator
-						imove.setLocatorValue("Bestelllager");
-						imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{imove.getLocatorValue()}));
+						//       locator where negative qtyonhand is allowed
+						if(imove.getM_Locator_ID()==0) {
+							// when there is no single locator specified and the product is on order we set the source
+							// locator to a virtual order location
+							imove.setM_Locator_ID(getID(MLocator.Table_Name,"Value = ?", new Object[]{"Bestelllager"}));
+						} else {
+							err.append(" @M_Product_ID@/@M_Locator_ID@: kein ausreichender Lagerbestand am POS (Bestellware),");							
+						}
 					} else {
 						if(imove.getM_Locator_ID()==0)
 							err.append(" @M_Product_ID@/@M_Warehouse_ID@: Keinen Lagerort mit Lagerbestand gefunden,");
