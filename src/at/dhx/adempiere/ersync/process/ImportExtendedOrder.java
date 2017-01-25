@@ -68,9 +68,9 @@ public class ImportExtendedOrder extends SvrProcess {
 	}
 
 	/** Client to be imported to */
-	private int m_AD_Client_ID = 0;
+	protected int m_AD_Client_ID = 0;
 	/** Organization to be imported to */
-	private int m_AD_Org_ID = 0;
+	protected int m_AD_Org_ID = 0;
 	/** Delete old Imported */
 	private boolean m_deleteOldImported = false;
 	/** Document Action */
@@ -98,6 +98,10 @@ public class ImportExtendedOrder extends SvrProcess {
 			return new X_I_POS_Order(getCtx(), rs, get_TrxName());
 		}
 		throw new IllegalStateException("Invalid table for extended order: " + getM_TableName());
+	}
+	
+	protected void preflight() {
+		// to override
 	}
 	
 	/**
@@ -1062,8 +1066,11 @@ public class ImportExtendedOrder extends SvrProcess {
 		if (no != 0)
 			log.warning("No BPartner=" + no);
 
+		preflight();
+
 		commitEx();
 
+		
 		// -- New Orders -----------------------------------------------------
 
 		// check how many lines there are with error status
