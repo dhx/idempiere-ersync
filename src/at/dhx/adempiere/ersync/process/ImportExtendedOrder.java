@@ -48,6 +48,7 @@ import org.compiere.util.Trx;
 
 import at.dhx.adempiere.ersync.model.I_I_Extended_Order;
 import at.dhx.adempiere.ersync.model.X_I_POS_Order;
+import at.dhx.adempiere.ersync.model.X_I_Purchase_Order;
 import at.dhx.adempiere.ersync.model.X_I_Web_Order;
 
 /**
@@ -96,6 +97,8 @@ public class ImportExtendedOrder extends SvrProcess {
 			return new X_I_Web_Order(getCtx(), rs, get_TrxName());
 		} else if(getM_TableName().toLowerCase().equals("i_pos_order")) {
 			return new X_I_POS_Order(getCtx(), rs, get_TrxName());
+		} else if(getM_TableName().toLowerCase().equals("i_purchase_order")) {
+			return new X_I_Purchase_Order(getCtx(), rs, get_TrxName());
 		}
 		throw new IllegalStateException("Invalid table for extended order: " + getM_TableName());
 	}
@@ -613,36 +616,44 @@ public class ImportExtendedOrder extends SvrProcess {
 			log.fine("Found Location=" + no);
 
 		/*
-		 * DHX: We do not set the Bill and Delivery Location from the BPartner
-		 * as the Locations will always be set from the Web Order
-		 *//**
-		 * // Set Bill Location from BPartner sql = new StringBuilder
-		 * ("UPDATE ").append(getM_TableName()).append(" o ") .append(
-		 * "SET BillTo_ID=(SELECT MAX(C_BPartner_Location_ID) FROM C_BPartner_Location l"
-		 * ) .append(
-		 * " WHERE l.C_BPartner_ID=o.C_BPartner_ID AND o.AD_Client_ID=l.AD_Client_ID"
-		 * ) .append(
-		 * " AND ((l.IsBillTo='Y' AND o.IsSOTrx='Y') OR (l.IsPayFrom='Y' AND o.IsSOTrx='N'))"
-		 * ) .append(") ")
-		 * .append("WHERE C_BPartner_ID IS NOT NULL AND BillTo_ID IS NULL")
-		 * .append(" AND I_IsImported<>'Y'").append (clientCheck); no =
-		 * DB.executeUpdate(sql.toString(), get_TrxName()); if
-		 * (log.isLoggable(Level.FINE)) log.fine("Set BP BillTo from BP=" + no);
-		 * 
-		 * // Set Location from BPartner sql = new StringBuilder
-		 * ("UPDATE ").append(getM_TableName()).append(" o ") .append(
-		 * "SET C_BPartner_Location_ID=(SELECT MAX(C_BPartner_Location_ID) FROM C_BPartner_Location l"
-		 * ) .append(
-		 * " WHERE l.C_BPartner_ID=o.C_BPartner_ID AND o.AD_Client_ID=l.AD_Client_ID"
-		 * ) .append(
-		 * " AND ((l.IsShipTo='Y' AND o.IsSOTrx='Y') OR o.IsSOTrx='N')")
-		 * .append(") ") .append(
-		 * "WHERE C_BPartner_ID IS NOT NULL AND C_BPartner_Location_ID IS NULL")
-		 * .append(" AND I_IsImported<>'Y'").append (clientCheck); no =
-		 * DB.executeUpdate(sql.toString(), get_TrxName()); if
-		 * (log.isLoggable(Level.FINE)) log.fine("Set BP Location from BP=" +
-		 * no);
-		 **/
+		 * DHX: We do only set the Bill and Delivery Location from the BPartner
+		 * when doing a purchase order as the Locations will always be set from
+		 * the Web Order otherwise
+		 */
+		
+		// Set Bill Location from BPartner
+		sql = new StringBuilder("UPDATE ").append(getM_TableName())
+				.append(" o ")
+				.append("SET BillTo_ID=(SELECT MAX(C_BPartner_Location_ID) FROM C_BPartner_Location l")
+				.append(" WHERE l.C_BPartner_ID=o.C_BPartner_ID AND o.AD_Client_ID=l.AD_Client_ID")
+				.append(" AND ((l.IsBillTo='Y' AND o.IsSOTrx='Y') OR (l.IsPayFrom='Y' AND o.IsSOTrx='N'))")
+				.append(") ")
+				.append("WHERE C_BPartner_ID IS NOT NULL AND BillTo_ID IS NULL")
+				.append(" AND IsSOTrx='N'")
+				.append(" AND I_IsImported<>'Y'")
+				.append(clientCheck);
+
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set BP BillTo from BP=" + no);
+
+		// Set Location from BPartner
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName()).append(" o ")
+				.append("SET C_BPartner_Location_ID=(SELECT MAX(C_BPartner_Location_ID) FROM C_BPartner_Location l")
+				.append(" WHERE l.C_BPartner_ID=o.C_BPartner_ID AND o.AD_Client_ID=l.AD_Client_ID")
+				.append(" AND ((l.IsShipTo='Y' AND o.IsSOTrx='Y') OR o.IsSOTrx='N')")
+				.append(") ")
+				.append("WHERE C_BPartner_ID IS NOT NULL AND C_BPartner_Location_ID IS NULL")
+				.append(" AND IsSOTrx='N'")
+				.append(" AND I_IsImported<>'Y'")
+				.append(clientCheck);
+		
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set BP Location from BP=" + no);
 
 		
 		
