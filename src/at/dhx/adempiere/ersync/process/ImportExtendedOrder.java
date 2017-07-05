@@ -748,6 +748,19 @@ public class ImportExtendedOrder extends SvrProcess {
 		if (no != 0)
 			log.warning("Invalid Product=" + no);
 
+		// Set the dateordered to now if its null in the import table and this
+		// is a purchase order
+		sql = new StringBuilder("UPDATE ")
+				.append(getM_TableName())
+				.append(" o ")
+				.append("SET dateordered=now() ")
+				.append("WHERE dateordered IS NULL ")
+				.append(" AND isSOTrx='N' ")
+				.append(" AND I_IsImported<>'Y'").append (clientCheck);
+		no = DB.executeUpdate(sql.toString(), get_TrxName());
+		if (log.isLoggable(Level.FINE))
+			log.fine("Set Dateordered to now=" + no);		
+		
 		// See if product is in pricelist
 		sql = new StringBuilder("UPDATE ")
 				.append(getM_TableName())
@@ -1189,6 +1202,8 @@ public class ImportExtendedOrder extends SvrProcess {
 							order.setDateOrdered(imp.getDateOrdered());
 						if (imp.getDateAcct() != null)
 							order.setDateAcct(imp.getDateAcct());
+						if (imp.getDatePromised() != null)
+							order.setDatePromised(imp.getDatePromised());
 
 						// Set Order Source
 						if (imp.getC_OrderSource() != null)
