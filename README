@@ -1,0 +1,49 @@
+ * This program is free software; you can redistribute it and/or modify it    *
+ * under the terms version 2 of the GNU General Public License as published   *
+ * by the Free Software Foundation. This program is distributed in the hope   *
+ * that it will be useful, but WITHOUT ANY WARRANTY; without even the implied *
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.           *
+ * See the GNU General Public License for more details.                       *
+ * You should have received a copy of the GNU General Public License along    *
+ * with this program; if not, write to the Free Software Foundation, Inc.,    *
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.                     *
+
+This extension contains modifications for:
+
+Import Tables:
+
+- X_I_Purchase_Order.java
+- X_I_POS_Order.java
+- X_I_Web_Order.java
+- I_I_Purchase_Order.java
+- I_I_Auto_Movement.java
+- X_I_Auto_Movement.java
+- I_I_Extended_Order.java
+- I_I_POS_Order.java
+- I_I_Web_Order.java
+- I_M_Product.java
+- X_M_Product.java
+
+Product Model:
+
+- MProduct.java
+
+Processes:
+
+- ImportExtendedInventoryMove.java
+- ImportPOSOrder.java
+- ImportExtendedOrder.java
+- ImportPurchaseOrder.java
+- ImportAutoInventoryMove.java
+- ImportWebOrder.java
+
+Events:
+
+- CorrectImportEventHandler.java
+
+
+All those modifications are currently based on iDempiere 3.1.0, if you plan to
+use this extension in your iDempiere Installation make sure to test it for your
+use case as the modifications might be in conflict with changes made in newer
+iDempiere versions.
+  
